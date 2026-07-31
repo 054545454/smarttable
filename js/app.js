@@ -40,7 +40,7 @@ const App = {
         else this.renderScreenSelector('admin');
         break;
       case 'sa':
-        // Super Admin: #sa
+        // Super Admin: #sa (completely separate entry point)
         SuperAdminScreen.init();
         break;
       case 'select':
@@ -59,8 +59,8 @@ const App = {
           <h1 class="text-4xl font-playfair text-gold mb-3">SmartTable</h1>
           <p class="text-gray-400 mb-8">פלטפורמת ניהול מסעדות חכמה</p>
           <div class="space-y-3">
-            <a href="#sa" class="block btn-primary">👑 Super Admin</a>
-            <a href="#select" class="block btn-secondary text-gray-300">בחר מסך</a>
+            <a href="#select" class="block btn-primary">בחר מסך</a>
+            <a href="#sa" class="block text-gray-500 text-sm hover:text-gold transition-colors">👑 Super Admin</a>
           </div>
           <p class="text-gray-500 text-xs mt-8">v${CONFIG.app.version}</p>
         </div>
@@ -105,9 +105,9 @@ const App = {
 
   cleanupPrevious() {
     // Clean up any running timers
-    if (WaiterScreen.state.timer) { clearInterval(WaiterScreen.state.timer); WaiterScreen.state.timer = null; }
-    if (ManagerScreen.state.timer) { clearInterval(ManagerScreen.state.timer); ManagerScreen.state.timer = null; }
-    if (SuperAdminScreen.state.timer) { clearInterval(SuperAdminScreen.state.timer); SuperAdminScreen.state.timer = null; }
+    if (WaiterScreen.state?.timer) { clearInterval(WaiterScreen.state.timer); WaiterScreen.state.timer = null; }
+    if (ManagerScreen.state?.timer) { clearInterval(ManagerScreen.state.timer); ManagerScreen.state.timer = null; }
+    if (SuperAdminScreen.state?.timer) { clearInterval(SuperAdminScreen.state.timer); SuperAdminScreen.state.timer = null; }
   },
 };
 

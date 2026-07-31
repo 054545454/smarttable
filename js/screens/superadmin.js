@@ -9,6 +9,10 @@ const SuperAdminScreen = {
     stats: {},
     realtimeData: {},
     subscriptions: [],
+    timer: null,
+    realtimeClient: null,
+    realtimeScreen: null,
+    showAddClientForm: false,
   },
 
   init() {
@@ -42,6 +46,7 @@ const SuperAdminScreen = {
             <p id="sa-error" class="text-red-500 text-sm text-center hidden"></p>
             <button type="submit" class="btn-primary w-full">${t('confirm')}</button>
           </form>
+          <a href="#" class="block text-center text-sm text-gray-600 mt-4 hover:text-gray-400">← חזור</a>
         </div>
       </div>
     `;
@@ -72,8 +77,6 @@ const SuperAdminScreen = {
   async loadClients() {
     try {
       const allRestaurants = await sbSelect('restaurants', {}, { order: 'created_date', ascending: false });
-      
-      // Get settings for each restaurant
       this.state.clients = allRestaurants || [];
     } catch(e) { console.error(e); this.state.clients = []; }
   },
@@ -81,7 +84,6 @@ const SuperAdminScreen = {
   async loadGlobalStats() {
     try {
       const active = this.state.clients.filter(c => c.status === 'active');
-      const suspended = this.state.clients.filter(c => c.status === 'suspended');
       const promo = this.state.clients.filter(c => c.promo_active);
       const overdue = this.state.clients.filter(c => {
         if (c.promo_active && c.promo_expires_at) {
@@ -89,11 +91,9 @@ const SuperAdminScreen = {
         }
         return false;
       });
-      
       this.state.stats = {
         total: this.state.clients.length,
         active: active.length,
-        suspended: suspended.length,
         promo: promo.length,
         overdue: overdue.length,
       };
@@ -133,8 +133,7 @@ const SuperAdminScreen = {
       </div>
     `;
     this.attachEvents();
-    
-    if (this.state.tab === 'realtime') this.loadRealtime();
+    if (this.state.tab === 'realtime') this.loadRealtimeView();
   },
 
   renderTab(tabId, icon, label) {
@@ -152,8 +151,7 @@ const SuperAdminScreen = {
       case 'dashboard': return this.renderDashboard();
       case 'clients': return this.renderClients();
       case 'billing': return this.renderBilling();
-      case 'realtime': return this.renderRealtime();
-      case 'clientDetail': return this.renderClientDetail();
+      case 'realtime': return this.renderRealtimeView();
       default: return this.renderDashboard();
     }
   },
@@ -179,7 +177,6 @@ const SuperAdminScreen = {
           <div class="text-xs text-gray-500 mt-1">פג תוקף</div>
         </div>
       </div>
-
       <div class="card">
         <h3 class="font-semibold text-gray-700 mb-3">רשימת לקוחות אחרונה</h3>
         <div class="space-y-2">
@@ -198,23 +195,73 @@ const SuperAdminScreen = {
   },
 
   renderClients() {
-    const { selectedClient } = this.state;
-    
-    if (selectedClient) return this.renderClientDetail();
-    
+    if (this.state.showAddClientForm) return this.renderAddClientForm();
     return `
       <div class="space-y-4">
         <div class="flex items-center justify-between">
           <h2 class="text-lg font-semibold text-gray-800">${t('clients')} (${this.state.clients.length})</h2>
           <div class="flex gap-2">
             <input type="text" id="client-search" class="input-field max-w-xs" placeholder="${t('search')}">
-            <button id="export-clients" class="btn-secondary text-sm">📥 ${t('exportClients')}</button>
             <button id="add-client-btn" class="btn-primary text-sm">+ ${t('addClient')}</button>
           </div>
         </div>
-
         <div id="clients-list" class="space-y-2">
           ${this.renderClientsList()}
+        </div>
+      </div>
+    `;
+  },
+
+  renderAddClientForm() {
+    return `
+      <div class="space-y-4">
+        <button id="back-to-clients" class="text-sm text-gray-500 hover:text-gray-700">← ${t('back')}</button>
+        <div class="card max-w-2xl mx-auto">
+          <h2 class="text-xl font-semibold text-gray-800 mb-4">+ הוספת לקוח חדש</h2>
+          <form id="add-client-form" class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="text-sm text-gray-600 mb-1 block">שם מסעדה *</label>
+                <input type="text" id="client-name" class="input-field" required>
+              </div>
+              <div>
+                <label class="text-sm text-gray-600 mb-1 block">שם בעלים</label>
+                <input type="text" id="client-owner" class="input-field">
+              </div>
+              <div>
+                <label class="text-sm text-gray-600 mb-1 block">מייל (שם משתמש + לשליחת פרטים) *</label>
+                <input type="email" id="client-email" class="input-field" required>
+              </div>
+              <div>
+                <label class="text-sm text-gray-600 mb-1 block">טלפון ראשי</label>
+                <input type="tel" id="client-phone" class="input-field">
+              </div>
+              <div>
+                <label class="text-sm text-gray-600 mb-1 block">כתובת</label>
+                <input type="text" id="client-address" class="input-field">
+              </div>
+              <div>
+                <label class="text-sm text-gray-600 mb-1 block">ח.פ. / ע.מ.</label>
+                <input type="text" id="client-business-num" class="input-field">
+              </div>
+              <div>
+                <label class="text-sm text-gray-600 mb-1 block">מספר חוזה</label>
+                <input type="text" id="client-contract-num" class="input-field">
+              </div>
+              <div>
+                <label class="text-sm text-gray-600 mb-1 block">מספר שולחנות מקסימלי</label>
+                <input type="number" id="client-max-tables" class="input-field" value="30" min="1">
+              </div>
+            </div>
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
+              ℹ️ סיסמה ראשונית תיווצר אוטומטית ותישלח למייל של הלקוח יחד עם קישור הכניסה. הלקוח יידרש לשנות את הסיסמה בכניסה הראשונה.
+            </div>
+            <p id="add-client-error" class="text-red-500 text-sm text-center hidden"></p>
+            <p id="add-client-success" class="text-green-500 text-sm text-center hidden"></p>
+            <button type="submit" class="btn-primary w-full" id="add-client-submit">
+              צור לקוח ושלח מייל
+            </button>
+          </form>
         </div>
       </div>
     `;
@@ -251,520 +298,263 @@ const SuperAdminScreen = {
     `).join('');
   },
 
-  renderClientDetail() {
-    const c = this.state.selectedClient;
-    if (!c) return '';
-    
-    return `
-      <div class="space-y-4">
-        <button id="back-to-clients" class="text-sm text-gray-500 hover:text-gray-700">← ${t('back')}</button>
-        
-        <!-- Client Info (Super Admin only - not editable by client) -->
-        <div class="card">
-          <h3 class="font-semibold text-gray-700 mb-3">פרטי לקוח ${t('viewOnly')} 🔒</h3>
-          <div class="grid grid-cols-2 gap-3 text-sm">
-            <div><span class="text-gray-500">${t('clientName')}:</span> <b>${Utils.escape(c.name)}</b></div>
-            <div><span class="text-gray-500">${t('businessNumber')}:</span> <b>${c.business_number || '—'}</b></div>
-            <div><span class="text-gray-500">${t('ownerName')}:</span> <b>${Utils.escape(c.owner_name)}</b></div>
-            <div><span class="text-gray-500">${t('phonePrimary')}:</span> <b>${c.phone_primary || '—'}</b></div>
-            <div><span class="text-gray-500">${t('phoneSecondary')}:</span> <b>${c.phone_secondary || '—'}</b></div>
-            <div><span class="text-gray-500">${t('email')}:</span> <b>${c.email || '—'}</b></div>
-            <div><span class="text-gray-500">${t('address')}:</span> <b>${c.address || '—'}</b></div>
-            <div><span class="text-gray-500">${t('maxTables')}:</span> <b>${c.max_tables || 20}</b></div>
-            <div><span class="text-gray-500">${t('contractNumber')}:</span> <b>${c.contract_number || '—'}</b></div>
-            <div><span class="text-gray-500">${t('technicalContact')}:</span> <b>${c.technical_contact || '—'}</b></div>
-          </div>
-          ${c.notes_internal ? `<div class="mt-3 p-3 bg-yellow-50 rounded-lg text-sm"><b>${t('notesInternal')}:</b> ${Utils.escape(c.notes_internal)}</div>` : ''}
-        </div>
-
-        <!-- Realtime View -->
-        <div class="card">
-          <h3 class="font-semibold text-gray-700 mb-3">⚡ ${t('viewOnly')} — נתוני זמן אמת</h3>
-          <div id="client-realtime" class="space-y-2">
-            ${Utils.spinner()}
-          </div>
-        </div>
-
-        <!-- Billing Info -->
-        <div class="card">
-          <h3 class="font-semibold text-gray-700 mb-3">💰 ${t('billing')}</h3>
-          <div class="grid grid-cols-2 gap-3 text-sm">
-            <div><span class="text-gray-500">${t('billingDay')}:</span> <b>${c.billing_day || 1}</b></div>
-            <div><span class="text-gray-500">${t('billingAmount')}:</span> <b>₪${c.billing_amount || 0}</b></div>
-            <div><span class="text-gray-500">${t('promo')}:</span> <b>${c.promo_active ? '✅ ' + t('promoActive') : '❌'}</b></div>
-            <div><span class="text-gray-500">${t('promoExpires')}:</span> <b>${c.promo_expires_at ? Utils.formatDate(c.promo_expires_at) : '—'}</b></div>
-          </div>
-        </div>
-
-        <!-- Actions -->
-        <div class="flex gap-2">
-          ${!c.promo_active ? `<button id="activate-promo" data-client="${c.id}" class="btn-primary text-sm">${t('activatePromo')}</button>` : ''}
-          <button id="edit-client" data-client="${c.id}" class="btn-secondary text-sm">${t('edit')}</button>
-        </div>
-      </div>
-    `;
-  },
-
   renderBilling() {
     return `
       <div class="space-y-4">
         <h2 class="text-lg font-semibold text-gray-800">${t('billing')}</h2>
-        <div class="card overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead>
-              <tr class="border-b text-left">
-                <th class="py-2">לקוח</th>
-                <th class="py-2">${t('billingDay')}</th>
-                <th class="py-2">${t('billingAmount')}</th>
-                <th class="py-2">${t('promo')}</th>
-                <th class="py-2">סטטוס</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${this.state.clients.map(c => `
-                <tr class="border-b last:border-0">
-                  <td class="py-2 font-medium">${Utils.escape(c.name)}</td>
-                  <td class="py-2">${c.billing_day || 1}</td>
-                  <td class="py-2">₪${c.billing_amount || 0}</td>
-                  <td class="py-2">${c.promo_active ? '✅' : '—'}</td>
-                  <td class="py-2">
-                    <span class="px-2 py-1 rounded text-xs ${c.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
-                      ${t(c.status) || c.status}
-                    </span>
-                  </td>
-                </tr>
-              `).join('') || `<tr><td colspan="5" class="py-4 text-center text-gray-400">אין נתונים</td></tr>`}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-  },
-
-  renderRealtime() {
-    return `
-      <div class="space-y-4">
-        <h2 class="text-lg font-semibold text-gray-800">⚡ נתוני זמן אמת — כל המסעדות</h2>
-        <div id="realtime-grid" class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          ${Utils.spinner()}
-        </div>
-      </div>
-    `;
-  },
-
-  async loadRealtime() {
-    const container = this.state.tab === 'realtime' 
-      ? document.getElementById('realtime-grid')
-      : document.getElementById('client-realtime');
-    
-    if (!container) return;
-    
-    if (this.state.tab === 'realtime') {
-      // Load tasks for all active restaurants
-      try {
-        const activeIds = this.state.clients.filter(c => c.status === 'active').map(c => c.id);
-        
-        if (activeIds.length === 0) {
-          container.innerHTML = Utils.emptyState('אין מסעדות פעילות');
-          return;
-        }
-        
-        // Load open tasks for all restaurants
-        const tasks = await sbSelect('tasks', { status: 'open' });
-        
-        // Group by restaurant
-        const byRestaurant = {};
-        (tasks || []).forEach(task => {
-          if (!byRestaurant[task.restaurant_id]) byRestaurant[task.restaurant_id] = [];
-          byRestaurant[task.restaurant_id].push(task);
-        });
-        
-        container.innerHTML = this.state.clients
-          .filter(c => c.status === 'active')
-          .map(c => {
-            const tasks = byRestaurant[c.id] || [];
-            return `
-              <div class="card">
-                <div class="flex items-center justify-between mb-2">
-                  <h4 class="font-medium text-gray-800">${Utils.escape(c.name)}</h4>
-                  <span class="text-sm font-bold ${tasks.length > 0 ? 'text-orange-500' : 'text-green-500'}">
-                    ${tasks.length} משימות פתוחות
-                  </span>
-                </div>
-                ${tasks.length === 0 
-                  ? '<p class="text-sm text-gray-400">✅ הכל רגוע</p>'
-                  : tasks.slice(0, 5).map(t => {
-                      const urgency = Utils.getUrgency(t.created_at, {});
-                      const typeInfo = CONFIG.taskTypes[t.type] || { icon: '📋', label: t.type };
-                      return `<div class="flex items-center gap-2 py-1 text-sm">
-                        <span class="w-2 h-2 rounded-full task-${urgency}"></span>
-                        <span>${typeInfo.icon} ${typeInfo.label} · ${t('tableNumber')} ${t.table_number}</span>
-                      </div>`;
-                    }).join('')
-                }
-              </div>
-            `;
-          }).join('');
-      } catch(e) {
-        container.innerHTML = `<p class="text-red-500 text-sm">שגיאה בטעינת נתונים</p>`;
-        console.error(e);
-      }
-    } else if (this.state.selectedClient) {
-      // Load realtime for single client
-      try {
-        const tasks = await sbSelect('tasks', { restaurant_id: this.state.selectedClient.id, status: 'open' }, { order: 'created_at', ascending: false });
-        
-        const tables = await sbSelect('restaurant_tables', { restaurant_id: this.state.selectedClient.id }, { order: 'table_number', ascending: true });
-        
-        const openTables = (tables || []).filter(t => t.is_open);
-        
-        container.innerHTML = `
-          <div class="grid grid-cols-2 gap-3 mb-3">
-            <div class="bg-gray-50 rounded-lg p-3 text-center">
-              <div class="text-2xl font-bold text-blue-500">${openTables.length}</div>
-              <div class="text-xs text-gray-500">שולחנות פתוחים</div>
+        ${this.state.clients.map(c => `
+          <div class="card flex items-center justify-between">
+            <div>
+              <div class="font-medium text-gray-800">${Utils.escape(c.name)}</div>
+              <div class="text-xs text-gray-400">חיוב חודשי · יום ${c.billing_day || 1} · ${c.billing_currency || 'ILS'}</div>
             </div>
-            <div class="bg-gray-50 rounded-lg p-3 text-center">
-              <div class="text-2xl font-bold text-orange-500">${(tasks || []).length}</div>
-              <div class="text-xs text-gray-500">משימות פתוחות</div>
+            <div class="text-left">
+              <div class="text-sm font-semibold ${c.promo_active ? 'text-green-500' : 'text-gray-600'}">
+                ${c.promo_active ? 'פרומו פעיל' : 'חיוב רגיל'}
+              </div>
+              ${c.promo_expires_at ? `<div class="text-xs text-gray-400">עד ${Utils.formatDate(c.promo_expires_at)}</div>` : ''}
             </div>
           </div>
-          ${(tasks || []).length === 0 
-            ? '<p class="text-sm text-gray-400 text-center py-4">✅ אין משימות פתוחות כעת</p>'
-            : (tasks || []).map(t => {
-                const urgency = Utils.getUrgency(t.created_at, {});
-                const typeInfo = CONFIG.taskTypes[t.type] || { icon: '📋', label: t.type };
-                return `<div class="task-${urgency} rounded-lg px-3 py-2 text-white text-sm flex items-center justify-between">
-                  <span>${typeInfo.icon} ${typeInfo.label} · ${t('tableNumber')} ${t.table_number}</span>
-                  <span class="text-xs">${Math.floor(Utils.elapsedSeconds(t.created_at))}s</span>
-                </div>`;
-              }).join('')
-          }
-        `;
-      } catch(e) {
-        container.innerHTML = `<p class="text-red-500 text-sm">שגיאה</p>`;
-        console.error(e);
-      }
+        `).join('') || Utils.emptyState('אין לקוחות', '💰')}
+      </div>
+    `;
+  },
+
+  // --- REALTIME VIEW: click client → choose screen ---
+  renderRealtimeView() {
+    if (this.state.realtimeClient) return this.renderRealtimeClientView();
+    return `
+      <div class="space-y-4">
+        <h2 class="text-lg font-semibold text-gray-800">⚡ זמן אמת — בחר לקוח</h2>
+        <div class="space-y-2">
+          ${this.state.clients.map(c => `
+            <div class="card flex items-center justify-between cursor-pointer hover:shadow-md transition-all" data-realtime-client="${c.id}">
+              <div class="flex items-center gap-3">
+                <span class="w-2 h-2 rounded-full ${c.status === 'active' ? 'bg-green-500' : 'bg-gray-400'}"></span>
+                <span class="font-medium text-gray-800">${Utils.escape(c.name)}</span>
+              </div>
+              <span class="text-gray-400 text-sm">צפה →</span>
+            </div>
+          `).join('') || Utils.emptyState('אין לקוחות', '⚡')}
+        </div>
+      </div>
+    `;
+  },
+
+  renderRealtimeClientView() {
+    const c = this.state.realtimeClient;
+    const screen = this.state.realtimeScreen;
+    
+    return `
+      <div class="space-y-4">
+        <div class="flex items-center justify-between">
+          <button id="back-to-realtime-list" class="text-sm text-gray-500 hover:text-gray-700">← חזרה לרשימה</button>
+          <h2 class="text-lg font-semibold text-gray-800">${Utils.escape(c.name)}</h2>
+        </div>
+        
+        <div class="flex gap-2 flex-wrap">
+          <button data-screen="admin" class="px-4 py-2 rounded-lg text-sm font-medium border-2 transition-all ${!screen || screen === 'admin' ? 'border-gold text-gold bg-gold/10' : 'border-gray-200 text-gray-600 hover:border-gray-300'}">
+            🏢 בעלים
+          </button>
+          <button data-screen="manager" class="px-4 py-2 rounded-lg text-sm font-medium border-2 transition-all ${screen === 'manager' ? 'border-gold text-gold bg-gold/10' : 'border-gray-200 text-gray-600 hover:border-gray-300'}">
+            👨‍💼 מנהל משמרת
+          </button>
+          <button data-screen="waiter" class="px-4 py-2 rounded-lg text-sm font-medium border-2 transition-all ${screen === 'waiter' ? 'border-gold text-gold bg-gold/10' : 'border-gray-200 text-gray-600 hover:border-gray-300'}">
+            🤵 מלצר
+          </button>
+          <button data-screen="customer" class="px-4 py-2 rounded-lg text-sm font-medium border-2 transition-all ${screen === 'customer' ? 'border-gold text-gold bg-gold/10' : 'border-gray-200 text-gray-600 hover:border-gray-300'}">
+            🍽️ לקוח
+          </button>
+        </div>
+        
+        <div class="bg-gray-100 rounded-xl overflow-hidden border" style="height: 70vh;">
+          <iframe id="realtime-iframe" src="" class="w-full h-full border-0" style="display:none;"></iframe>
+          <div id="realtime-placeholder" class="flex items-center justify-center h-full text-gray-400 text-sm">
+            בחר מסך לצפייה
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  loadRealtimeView() {},
+
+  setRealtimeScreen(screenType) {
+    this.state.realtimeScreen = screenType;
+    const c = this.state.realtimeClient;
+    if (!c) return;
+    
+    const iframe = document.getElementById('realtime-iframe');
+    const placeholder = document.getElementById('realtime-placeholder');
+    
+    let url = '';
+    switch(screenType) {
+      case 'admin': url = `https://violet-dunlin-978279.hostingersite.com/#a/${c.id}`; break;
+      case 'manager': url = `https://violet-dunlin-978279.hostingersite.com/#m/${c.id}`; break;
+      case 'waiter': url = `https://violet-dunlin-978279.hostingersite.com/#w/${c.id}`; break;
+      case 'customer': url = `https://violet-dunlin-978279.hostingersite.com/#c/demo`; break;
     }
+    
+    if (url) {
+      iframe.src = url;
+      iframe.style.display = 'block';
+      placeholder.style.display = 'none';
+    }
+    
+    // Update button states
+    document.querySelectorAll('[data-screen]').forEach(btn => {
+      const isActive = btn.dataset.screen === screenType;
+      btn.className = `px-4 py-2 rounded-lg text-sm font-medium border-2 transition-all ${isActive ? 'border-gold text-gold bg-gold/10' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`;
+    });
   },
 
   attachEvents() {
-    document.getElementById('sa-logout')?.addEventListener('click', () => {
-      Auth.clearSession('superadmin');
-      this.state.subscriptions.forEach(s => { try { s.unsubscribe(); } catch(e){} });
-      window.location.hash = '';
+    // Logout
+    const logout = document.getElementById('sa-logout');
+    if (logout) logout.addEventListener('click', () => {
+      Auth.clearAll();
+      this.state.admin = null;
+      this.state.tab = 'dashboard';
+      this.state.selectedClient = null;
+      this.state.realtimeClient = null;
+      this.state.realtimeScreen = null;
+      this.renderLogin();
     });
-    
+
+    // Tab switching
     document.querySelectorAll('[data-tab]').forEach(btn => {
       btn.addEventListener('click', () => {
         this.state.tab = btn.dataset.tab;
-        this.state.selectedClient = null;
+        this.state.showAddClientForm = false;
+        this.state.realtimeClient = null;
+        this.state.realtimeScreen = null;
         this.render();
       });
     });
-    
+
     // Client search
-    document.getElementById('client-search')?.addEventListener('input', Utils.debounce((e) => {
+    const search = document.getElementById('client-search');
+    if (search) search.addEventListener('input', (e) => {
       const list = document.getElementById('clients-list');
       if (list) list.innerHTML = this.renderClientsList(e.target.value);
-      this.attachClientClicks();
-    }, 300));
-    
-    // Export
-    document.getElementById('export-clients')?.addEventListener('click', () => {
-      Utils.exportCSV(this.state.clients, 'clients.csv');
+      this.attachClientClickEvents();
     });
-    
-    // Add client
-    document.getElementById('add-client-btn')?.addEventListener('click', () => this.showAddClientModal());
-    
-    // Back to clients
-    document.getElementById('back-to-clients')?.addEventListener('click', () => {
-      this.state.selectedClient = null;
-      this.state.tab = 'clients';
+
+    // Add client button
+    const addBtn = document.getElementById('add-client-btn');
+    if (addBtn) addBtn.addEventListener('click', () => {
+      this.state.showAddClientForm = true;
       this.render();
     });
-    
-    // Activate promo
-    document.getElementById('activate-promo')?.addEventListener('click', async (e) => {
-      const clientId = e.target.dataset.client;
-      const expiresAt = new Date();
-      expiresAt.setMonth(expiresAt.getMonth() + 3);
+
+    // Back to clients
+    const backBtn = document.getElementById('back-to-clients');
+    if (backBtn) backBtn.addEventListener('click', () => {
+      this.state.showAddClientForm = false;
+      this.render();
+    });
+
+    // Add client form submit
+    const addForm = document.getElementById('add-client-form');
+    if (addForm) addForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const submitBtn = document.getElementById('add-client-submit');
+      const errEl = document.getElementById('add-client-error');
+      const successEl = document.getElementById('add-client-success');
+      errEl.classList.add('hidden');
+      successEl.classList.add('hidden');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'יוצר לקוח ושולח מייל...';
       
       try {
-        await sbUpdate('restaurants', { id: clientId }, {
-          promo_active: true,
-          promo_expires_at: expiresAt.toISOString(),
-          status: 'active',
+        const res = await apiCall({
+          action: 'createClient',
+          data: {
+            restaurant: {
+              name: document.getElementById('client-name').value.trim(),
+              owner_name: document.getElementById('client-owner').value.trim(),
+              email: document.getElementById('client-email').value.trim(),
+              phone_primary: document.getElementById('client-phone').value.trim(),
+              address: document.getElementById('client-address').value.trim(),
+              business_number: document.getElementById('client-business-num').value.trim(),
+              contract_number: document.getElementById('client-contract-num').value.trim(),
+              max_tables: parseInt(document.getElementById('client-max-tables').value) || 30,
+            },
+            admin: {
+              username: document.getElementById('client-email').value.trim(),
+              full_name: document.getElementById('client-owner').value.trim(),
+            },
+          },
         });
-        Utils.toast(t('activatePromo') + ' ✓');
+        
+        let msg = '✅ לקוח נוצר בהצלחה!';
+        if (res.email_sent) {
+          msg += ' מייל נשלח ללקוח.';
+        } else {
+          msg += ` ⚠️ שליחת מייל נכשלה: ${res.email_error || 'שגיאה לא ידועה'}. סיסמה זמנית: ${res.initial_password}`;
+        }
+        successEl.textContent = msg;
+        successEl.classList.remove('hidden');
+        
+        // Reload clients
         await this.loadClients();
-        this.state.selectedClient = this.state.clients.find(c => c.id === clientId);
-        this.render();
-      } catch(e) { Utils.toast('שגיאה'); }
+        await this.loadGlobalStats();
+        
+        setTimeout(() => {
+          this.state.showAddClientForm = false;
+          this.render();
+        }, 3000);
+      } catch (err) {
+        errEl.textContent = err.message || 'שגיאה ביצירת לקוח';
+        errEl.classList.remove('hidden');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'צור לקוח ושלח מייל';
+      }
     });
-    
-    // Edit client
-    document.getElementById('edit-client')?.addEventListener('click', (e) => {
-      this.showEditClientModal(e.target.dataset.client);
-    });
-    
-    this.attachClientClicks();
-    
-    // Realtime auto-refresh
-    if (this.state.tab === 'realtime' || this.state.selectedClient) {
-      if (this.state.timer) clearInterval(this.state.timer);
-      this.state.timer = setInterval(() => this.loadRealtime(), 5000);
-    }
-  },
 
-  attachClientClicks() {
-    document.querySelectorAll('[data-client-id]').forEach(el => {
+    // Realtime client selection
+    document.querySelectorAll('[data-realtime-client]').forEach(el => {
       el.addEventListener('click', () => {
-        this.state.selectedClient = this.state.clients.find(c => c.id === el.dataset.clientId);
-        this.state.tab = 'clients';
-        this.render();
-        this.loadRealtime();
+        const clientId = el.dataset.realtimeClient;
+        const client = this.state.clients.find(c => c.id === clientId);
+        if (client) {
+          this.state.realtimeClient = client;
+          this.state.realtimeScreen = null;
+          this.render();
+        }
       });
     });
-  },
 
-  showAddClientModal() {
-    const modal = document.createElement('div');
-    modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4';
-    modal.id = 'add-client-modal';
-    modal.innerHTML = `
-      <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 animate-fade-in">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-semibold">${t('addClient')}</h3>
-          <button id="close-modal" class="text-gray-400 hover:text-gray-600 text-xl">✕</button>
-        </div>
-        <form id="add-client-form" class="space-y-3">
-          <div>
-            <label class="text-sm text-gray-600">${t('clientName')} *</label>
-            <input type="text" id="nc-name" class="input-field mt-1" required>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="text-sm text-gray-600">${t('businessNumber')}</label>
-              <input type="text" id="nc-business" class="input-field mt-1">
-            </div>
-            <div>
-              <label class="text-sm text-gray-600">${t('ownerName')} *</label>
-              <input type="text" id="nc-owner" class="input-field mt-1" required>
-            </div>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="text-sm text-gray-600">${t('phonePrimary')} *</label>
-              <input type="tel" id="nc-phone1" class="input-field mt-1" required>
-            </div>
-            <div>
-              <label class="text-sm text-gray-600">${t('phoneSecondary')}</label>
-              <input type="tel" id="nc-phone2" class="input-field mt-1">
-            </div>
-          </div>
-          <div>
-            <label class="text-sm text-gray-600">${t('email')} *</label>
-            <input type="email" id="nc-email" class="input-field mt-1" required>
-          </div>
-          <div>
-            <label class="text-sm text-gray-600">${t('address')}</label>
-            <input type="text" id="nc-address" class="input-field mt-1">
-          </div>
-          <div class="grid grid-cols-3 gap-3">
-            <div>
-              <label class="text-sm text-gray-600">${t('contractNumber')}</label>
-              <input type="text" id="nc-contract" class="input-field mt-1">
-            </div>
-            <div>
-              <label class="text-sm text-gray-600">${t('technicalContact')}</label>
-              <input type="text" id="nc-tech" class="input-field mt-1">
-            </div>
-            <div>
-              <label class="text-sm text-gray-600">${t('maxTables')}</label>
-              <input type="number" id="nc-tables" class="input-field mt-1" value="20" min="1" max="200">
-            </div>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="text-sm text-gray-600">${t('billingDay')}</label>
-              <input type="number" id="nc-billing-day" class="input-field mt-1" value="1" min="1" max="28">
-            </div>
-            <div>
-              <label class="text-sm text-gray-600">${t('billingAmount')}</label>
-              <input type="number" id="nc-billing-amount" class="input-field mt-1" value="0" min="0" step="0.01">
-            </div>
-          </div>
-          <div>
-            <label class="text-sm text-gray-600">${t('notesInternal')}</label>
-            <textarea id="nc-notes" class="input-field mt-1" rows="2"></textarea>
-          </div>
-          <div class="flex items-center gap-2">
-            <input type="checkbox" id="nc-promo" checked>
-            <label class="text-sm text-gray-600">${t('promo')} (3 חודשים)</label>
-          </div>
-          <button type="submit" class="btn-primary w-full">${t('addClient')}</button>
-        </form>
-      </div>
-    `;
-    document.body.appendChild(modal);
-    
-    modal.querySelector('#close-modal').addEventListener('click', () => modal.remove());
-    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
-    
-    modal.querySelector('#add-client-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const promoActive = document.getElementById('nc-promo').checked;
-      const promoExpires = new Date();
-      promoExpires.setMonth(promoExpires.getMonth() + 3);
-      
-      try {
-        const result = await sbInsert('restaurants', {
-          name: document.getElementById('nc-name').value,
-          business_number: document.getElementById('nc-business').value,
-          owner_name: document.getElementById('nc-owner').value,
-          phone_primary: document.getElementById('nc-phone1').value,
-          phone_secondary: document.getElementById('nc-phone2').value,
-          email: document.getElementById('nc-email').value,
-          address: document.getElementById('nc-address').value,
-          contract_number: document.getElementById('nc-contract').value,
-          technical_contact: document.getElementById('nc-tech').value,
-          notes_internal: document.getElementById('nc-notes').value,
-          max_tables: parseInt(document.getElementById('nc-tables').value),
-          billing_day: parseInt(document.getElementById('nc-billing-day').value),
-          billing_amount: parseFloat(document.getElementById('nc-billing-amount').value),
-          status: 'setup',
-          promo_active: promoActive,
-          promo_expires_at: promoActive ? promoExpires.toISOString() : null,
-        });
-        
-        const restaurantId = result[0].id;
-        
-        // Create default settings
-        await sbInsert('restaurant_settings', {
-          restaurant_id: restaurantId,
-          theme: 'luxury',
-        });
-        
-        // Create admin user
-        await sbInsert('users', {
-          restaurant_id: restaurantId,
-          role: 'admin',
-          full_name: document.getElementById('nc-owner').value,
-          username: document.getElementById('nc-email').value,
-          password_hash: btoa('changeme123'),
-          is_active: true,
-        });
-        
-        // Create default tables
-        const tableCount = parseInt(document.getElementById('nc-tables').value);
-        for (let i = 1; i <= tableCount; i++) {
-          await sbInsert('restaurant_tables', {
-            restaurant_id: restaurantId,
-            table_number: i,
-            is_open: false,
-            scratch_used: false,
-          });
-        }
-        
-        Utils.toast(t('addClient') + ' ✓');
-        modal.remove();
-        await this.loadClients();
-        this.render();
-      } catch(e) { Utils.toast('שגיאה: ' + e.message); console.error(e); }
+    // Realtime screen selection
+    document.querySelectorAll('[data-screen]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.setRealtimeScreen(btn.dataset.screen);
+      });
     });
+
+    // Back to realtime list
+    const backToRealtime = document.getElementById('back-to-realtime-list');
+    if (backToRealtime) backToRealtime.addEventListener('click', () => {
+      this.state.realtimeClient = null;
+      this.state.realtimeScreen = null;
+      this.render();
+    });
+
+    // Client list clicks
+    this.attachClientClickEvents();
   },
 
-  showEditClientModal(clientId) {
-    const c = this.state.clients.find(cl => cl.id === clientId);
-    if (!c) return;
-    
-    const modal = document.createElement('div');
-    modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4';
-    modal.id = 'edit-client-modal';
-    modal.innerHTML = `
-      <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 animate-fade-in">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-semibold">${t('edit')} — ${Utils.escape(c.name)}</h3>
-          <button id="close-modal" class="text-gray-400 hover:text-gray-600 text-xl">✕</button>
-        </div>
-        <form id="edit-client-form" class="space-y-3">
-          <div>
-            <label class="text-sm text-gray-600">${t('clientName')}</label>
-            <input type="text" id="ec-name" class="input-field mt-1" value="${Utils.escape(c.name)}">
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="text-sm text-gray-600">${t('businessNumber')}</label>
-              <input type="text" id="ec-business" class="input-field mt-1" value="${c.business_number || ''}">
-            </div>
-            <div>
-              <label class="text-sm text-gray-600">${t('phonePrimary')}</label>
-              <input type="tel" id="ec-phone1" class="input-field mt-1" value="${c.phone_primary || ''}">
-            </div>
-          </div>
-          <div>
-            <label class="text-sm text-gray-600">${t('phoneSecondary')}</label>
-            <input type="tel" id="ec-phone2" class="input-field mt-1" value="${c.phone_secondary || ''}">
-            </div>
-          <div>
-            <label class="text-sm text-gray-600">${t('email')}</label>
-            <input type="email" id="ec-email" class="input-field mt-1" value="${c.email || ''}">
-          </div>
-          <div>
-            <label class="text-sm text-gray-600">${t('notesInternal')}</label>
-            <textarea id="ec-notes" class="input-field mt-1" rows="2">${c.notes_internal || ''}</textarea>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="text-sm text-gray-600">${t('billingDay')}</label>
-              <input type="number" id="ec-billing-day" class="input-field mt-1" value="${c.billing_day || 1}" min="1" max="28">
-            </div>
-            <div>
-              <label class="text-sm text-gray-600">${t('billingAmount')}</label>
-              <input type="number" id="ec-billing-amount" class="input-field mt-1" value="${c.billing_amount || 0}" min="0" step="0.01">
-            </div>
-          </div>
-          <div>
-            <label class="text-sm text-gray-600">סטטוס</label>
-            <select id="ec-status" class="input-field mt-1">
-              <option value="setup" ${c.status === 'setup' ? 'selected' : ''}>${t('setup')}</option>
-              <option value="active" ${c.status === 'active' ? 'selected' : ''}>${t('active')}</option>
-              <option value="inactive" ${c.status === 'inactive' ? 'selected' : ''}>${t('inactive')}</option>
-              <option value="suspended" ${c.status === 'suspended' ? 'selected' : ''}>${t('suspended')}</option>
-            </select>
-          </div>
-          <button type="submit" class="btn-primary w-full">${t('save')}</button>
-        </form>
-      </div>
-    `;
-    document.body.appendChild(modal);
-    
-    modal.querySelector('#close-modal').addEventListener('click', () => modal.remove());
-    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
-    
-    modal.querySelector('#edit-client-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      try {
-        await sbUpdate('restaurants', { id: clientId }, {
-          name: document.getElementById('ec-name').value,
-          business_number: document.getElementById('ec-business').value,
-          phone_primary: document.getElementById('ec-phone1').value,
-          phone_secondary: document.getElementById('ec-phone2').value,
-          email: document.getElementById('ec-email').value,
-          notes_internal: document.getElementById('ec-notes').value,
-          billing_day: parseInt(document.getElementById('ec-billing-day').value),
-          billing_amount: parseFloat(document.getElementById('ec-billing-amount').value),
-          status: document.getElementById('ec-status').value,
-        });
-        
-        Utils.toast(t('save') + ' ✓');
-        modal.remove();
-        await this.loadClients();
-        this.state.selectedClient = this.state.clients.find(cl => cl.id === clientId);
-        this.render();
-      } catch(e) { Utils.toast('שגיאה'); console.error(e); }
+  attachClientClickEvents() {
+    document.querySelectorAll('[data-client-id]').forEach(el => {
+      el.addEventListener('click', () => {
+        const clientId = el.dataset.clientId;
+        const client = this.state.clients.find(c => c.id === clientId);
+        if (client) {
+          this.state.selectedClient = client;
+          this.state.tab = 'clients';
+          this.render();
+        }
+      });
     });
   },
 };
