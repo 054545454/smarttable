@@ -1,0 +1,185 @@
+/* SmartTable — Custom Styles */
+
+/* Reset & Base */
+* { -webkit-tap-highlight-color: transparent; }
+html { scroll-behavior: smooth; }
+body { overscroll-behavior: none; }
+
+/* Theme Variables */
+:root {
+  --gold: #C9A84C;
+  --gold-light: #E5D5A8;
+  --gold-dark: #A68A3A;
+  --luxury-bg: #1A1A1A;
+  --luxury-card: #2A2A2A;
+  --luxury-border: #3A3A3A;
+}
+
+/* Theme: Luxury */
+.theme-luxury {
+  --bg: #1A1A1A;
+  --card: #2A2A2A;
+  --border: #3A3A3A;
+  --text: #E5D5A8;
+  --text-muted: #8A8A8A;
+  --accent: #C9A84C;
+  --accent-light: #E5D5A8;
+  --button-bg: #C9A84C;
+  --button-text: #1A1A1A;
+}
+
+/* Theme: Premium */
+.theme-premium {
+  --bg: #FFFFFF;
+  --card: #FAFAFA;
+  --border: #E5D5A8;
+  --text: #1A1A1A;
+  --text-muted: #6B6B6B;
+  --accent: #C9A84C;
+  --accent-light: #E5D5A8;
+  --button-bg: #C9A84C;
+  --button-text: #FFFFFF;
+}
+
+/* Theme: Classic */
+.theme-classic {
+  --bg: #F5F0E8;
+  --card: #FFFFFF;
+  --border: #D4C4A8;
+  --text: #3A2A1A;
+  --text-muted: #8A7A6A;
+  --accent: #B8860B;
+  --accent-light: #DAA520;
+  --button-bg: #B8860B;
+  --button-text: #FFFFFF;
+}
+
+/* Animations */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes pulse-soft { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+@keyframes scratch-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+@keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+.animate-fade-in { animation: fadeIn 0.3s ease-out; }
+.animate-slide-up { animation: slideUp 0.3s ease-out; }
+.animate-pulse-soft { animation: pulse-soft 2s infinite; }
+
+/* Task urgency colors */
+.task-green { background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); }
+.task-orange { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+.task-red { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+
+/* Scratch card */
+.scratch-overlay {
+  background: repeating-linear-gradient(45deg, #ccc, #ccc 5px, #999 5px, #999 10px);
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 3px; }
+
+/* Loading spinner */
+.spinner {
+  width: 40px; height: 40px;
+  border: 3px solid rgba(201, 168, 76, 0.3);
+  border-top-color: #C9A84C;
+  border-radius: 50%;
+  animation: spin-slow 0.8s linear infinite;
+}
+
+/* Button base */
+.btn-primary {
+  background: var(--button-bg);
+  color: var(--button-text);
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  transition: all 0.2s;
+  cursor: pointer;
+  border: none;
+}
+.btn-primary:active { transform: scale(0.97); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-secondary {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--border);
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.85);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  z-index: 9999;
+  animation: slideUp 0.3s ease-out;
+  max-width: 90vw;
+  text-align: center;
+}
+
+/* Fullscreen mode */
+.fullscreen-mode {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 100;
+  overflow-y: auto;
+}
+
+/* Hide elements */
+.hidden { display: none !important; }
+
+/* Responsive helpers */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* PIN input */
+.pin-input {
+  width: 3rem;
+  height: 3.5rem;
+  text-align: center;
+  font-size: 1.5rem;
+  border: 2px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--card);
+  color: var(--text);
+}
+
+/* Card */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  padding: 1.25rem;
+}
+
+/* Input */
+.input-field {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #D1D5DB;
+  border-radius: 0.75rem;
+  background: white;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+.input-field:focus {
+  outline: none;
+  border-color: #C9A84C;
+  box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.1);
+}

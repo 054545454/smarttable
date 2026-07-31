@@ -1,45 +1,26 @@
-# SmartTable 🍽️
-
-מערכת ניהול שירות מסעדה — SaaS מולטי-טננט
+# SmartTable — פלטפורמת SaaS לניהול מסעדות
 
 ## מסכים
+- **Customer** — `#/c/TABLE_TOKEN` (QR scan)
+- **Waiter** — `#/w/RESTAURANT_ID`
+- **Manager** — `#/m/RESTAURANT_ID`
+- **Admin** — `#/a/RESTAURANT_ID`
+- **Super Admin** — `#/sa`
 
-| מסך | URL | גישה |
-|-----|-----|------|
-| Super Admin | /superadmin | user: superadmin / pass: SmartTable2024! |
-| Admin מסעדה | /admin | user+pass שהוגדרו ב-Super Admin |
-| מלצרים | /waiter | פתוח ללא סיסמה |
-| אחמ"ש | /manager | PIN שהנפקת ב-Admin |
-| לקוח | /customer/[token] | QR code מהשולחן |
+## טכנולוגיות
+- HTML/CSS/JS סטטי (ללא Node.js)
+- Tailwind CSS (CDN)
+- Supabase (Auth + DB + Realtime)
+- תמיכה ב-5 שפות (HE, EN, AR, RU, FR)
+- 3 ערכות נושא (Luxury, Premium, Classic)
 
-## הגדרה ראשונה
+## ארכיטקטורה
+- Multi-tenant SaaS — כל שאילתה מסוננת לפי restaurant_id
+- Realtime דרך Supabase subscriptions
+- כל הלוגיקה בצד לקוח (Client-side)
+- פריסה אוטומטית דרך GitHub → Hostinger
 
-### 1. מלא .env.local
-\`\`\`
-NEXT_PUBLIC_SUPABASE_URL=https://yoqzlfztophwofjdtrhn.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
-SUPABASE_SERVICE_ROLE_KEY=eyJ...
-OPENAI_API_KEY=sk-...
-\`\`\`
-
-### 2. הרץ SQL ב-Supabase SQL Editor
-הרץ את קובץ database/schema.sql
-
-### 3. בשרת Hostinger
-\`\`\`bash
-cd ~/domains/violet-dunlin-978279.hostingersite.com/public_html
-# העתק את תוכן הפרויקט לכאן
-npm install
-npm run build
-npm start
-\`\`\`
-
-### 4. הוסף לקוח ראשון
-כנס ל-/superadmin והוסף את המסעדה הראשונה
-
-## סטאק
-- Next.js 14 App Router
-- Supabase (Database + Realtime)
-- Framer Motion (אנימציות)
-- Tailwind CSS + 3 themes
-- TypeScript
+## דרישות
+- Supabase project עם הסכמה (database/schema.sql)
+- Hostinger Shared Hosting
+- GitHub repo לפריסה אוטומטית
