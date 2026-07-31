@@ -1,12 +1,11 @@
 // SmartTable Configuration
 const CONFIG = {
-  supabase: {
-    url: 'https://yoqzlfztophwofjdtrhn.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlvcXpsZnp0b3Bod29mamR0cmhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2NTMyNzUsImV4cCI6MjEwMDIyOTI3NX0.YReKqPjCVopk8QJHDHiLAmiJnt_ZDBEhLi0T6UFKAHM',
+  api: {
+    url: 'https://solas-48957418.base44.app/functions/smarttableApi',
   },
   app: {
     name: 'SmartTable',
-    version: '1.0.0',
+    version: '2.0.0',
     defaultLanguage: 'he',
     supportedLanguages: ['he', 'en', 'ar', 'ru', 'fr'],
   },

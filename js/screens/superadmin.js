@@ -71,12 +71,10 @@ const SuperAdminScreen = {
 
   async loadClients() {
     try {
-      const allRestaurants = await sb.from('restaurants')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const allRestaurants = await sbSelect('restaurants', {}, { order: 'created_at', ascending: false });
       
       // Get settings for each restaurant
-      this.state.clients = allRestaurants.data || [];
+      this.state.clients = allRestaurants || [];
     } catch(e) { console.error(e); this.state.clients = []; }
   },
 
@@ -372,11 +370,7 @@ const SuperAdminScreen = {
         }
         
         // Load open tasks for all restaurants
-        const { data: tasks } = await sb.from('tasks')
-          .select('*')
-          .in('restaurant_id', activeIds)
-          .eq('status', 'open')
-          .order('created_at', { ascending: false });
+        const tasks = await sbSelect('tasks', { status: 'open' });
         
         // Group by restaurant
         const byRestaurant = {};
@@ -418,16 +412,9 @@ const SuperAdminScreen = {
     } else if (this.state.selectedClient) {
       // Load realtime for single client
       try {
-        const { data: tasks } = await sb.from('tasks')
-          .select('*')
-          .eq('restaurant_id', this.state.selectedClient.id)
-          .eq('status', 'open')
-          .order('created_at', { ascending: false });
+        const tasks = await sbSelect('tasks', { restaurant_id: this.state.selectedClient.id, status: 'open' }, { order: 'created_at', ascending: false });
         
-        const { data: tables } = await sb.from('restaurant_tables')
-          .select('*')
-          .eq('restaurant_id', this.state.selectedClient.id)
-          .order('table_number', { ascending: true });
+        const tables = await sbSelect('restaurant_tables', { restaurant_id: this.state.selectedClient.id }, { order: 'table_number', ascending: true });
         
         const openTables = (tables || []).filter(t => t.is_open);
         

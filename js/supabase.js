@@ -1,107 +1,131 @@
-// SmartTable — Supabase Client
-const sb = supabase.createClient(
-  CONFIG.supabase.url,
-  CONFIG.supabase.anonKey,
-  {
-    realtime: { params: { eventsPerSecond: 10 } }
-  }
-);
+// SmartTable API Client — Base44 Backend
+// Replaces Supabase with fetch-based API calls to Base44 backend function
+// Designed for easy migration: same interface as supabase.js
 
-// Generic query helper with restaurant_id filtering
-async function sbSelect(table, filters = {}, options = {}) {
-  let query = sb.from(table).select(options.select || '*');
-  
-  if (filters.restaurant_id) {
-    query = query.eq('restaurant_id', filters.restaurant_id);
+const API_URL = 'https://solas-48957418.base44.app/functions/smarttableApi';
+
+async function apiCall(body) {
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'API Error');
   }
-  for (const [key, value] of Object.entries(filters)) {
-    if (key === 'restaurant_id') continue;
-    if (typeof value === 'object' && value !== null) {
-      if (value.eq) query = query.eq(key, value.eq);
-      if (value.neq) query = query.neq(key, value.neq);
-      if (value.in) query = query.in(key, value.in);
-      if (value.gt) query = query.gt(key, value.gt);
-      if (value.lt) query = query.lt(key, value.lt);
-      if (value.gte) query = query.gte(key, value.gte);
-      if (value.lte) query = query.lte(key, value.lte);
-      if (value.like) query = query.like(key, value.like);
-    } else {
-      query = query.eq(key, value);
-    }
-  }
-  
-  if (options.order) {
-    query = query.order(options.order.column, { ascending: options.order.ascending ?? false });
-  }
-  if (options.limit) query = query.limit(options.limit);
-  if (options.single) query = query.single();
-  
-  const { data, error } = await query;
-  if (error) throw error;
   return data;
+}
+
+// Generic query helper with restaurant_id filtering (same interface as sbSelect)
+async function sbSelect(table, filters = {}, options = {}) {
+  return apiCall({
+    action: 'select',
+    table,
+    filters,
+    options,
+  });
 }
 
 async function sbInsert(table, data) {
-  const { data: result, error } = await sb.from(table).insert(data).select();
-  if (error) throw error;
-  return result;
+  return apiCall({
+    action: 'insert',
+    table,
+    data,
+  });
 }
 
 async function sbUpdate(table, filters, updates) {
-  let query = sb.from(table).update(updates);
-  for (const [key, value] of Object.entries(filters)) {
-    query = query.eq(key, value);
-  }
-  const { data, error } = await query.select();
-  if (error) throw error;
-  return data;
+  return apiCall({
+    action: 'update',
+    table,
+    filters,
+    data: updates,
+  });
 }
 
 async function sbDelete(table, filters) {
-  let query = sb.from(table).delete();
-  for (const [key, value] of Object.entries(filters)) {
-    query = query.eq(key, value);
-  }
-  const { error } = await query;
-  if (error) throw error;
+  return apiCall({
+    action: 'delete',
+    table,
+    filters,
+  });
 }
 
-// Realtime subscription helper
-function sbSubscribe(table, filters, callback) {
-  let channel = sb.channel(`${table}_changes`);
-  
-  if (filters.restaurant_id) {
-    channel = channel.filter('restaurant_id', 'eq', filters.restaurant_id);
-  }
-  
-  channel = channel.on('postgres_changes',
-    { event: '*', schema: 'public', table: table },
-    (payload) => callback(payload)
-  );
-  
-  return channel.subscribe();
+// Auth helper
+async function sbAuth(role, credentials) {
+  return apiCall({
+    action: 'auth',
+    auth: { role, ...credentials },
+  });
 }
 
-// Channel for tasks with restaurant filter
+// QR lookup helper
+async function sbGetByQr(token) {
+  return apiCall({
+    action: 'getByQr',
+    filters: { qr_token: token },
+  });
+}
+
+// Polling helper (replaces Supabase real-time subscriptions)
+async function sbPoll(restaurantId) {
+  return apiCall({
+    action: 'poll',
+    filters: { restaurant_id: restaurantId },
+  });
+}
+
+// Polling-based "subscription" that calls callback on changes
+// Returns an object with unsubscribe() method (same interface as Supabase channels)
+function sbSubscribePoll(restaurantId, callback, intervalMs = 3000) {
+  let active = true;
+  let lastData = null;
+  
+  const poll = async () => {
+    if (!active) return;
+    try {
+      const data = await sbPoll(restaurantId);
+      if (active && JSON.stringify(data) !== JSON.stringify(lastData)) {
+        lastData = data;
+        callback(data);
+      }
+    } catch (e) {
+      console.error('Poll error:', e);
+    }
+    if (active) {
+      setTimeout(poll, intervalMs);
+    }
+  };
+  
+  poll();
+  
+  return {
+    unsubscribe() { active = false; }
+  };
+}
+
+// Compatibility wrappers for existing code that uses sbSubscribe*
 function sbSubscribeTasks(restaurantId, callback) {
-  return sb.channel('tasks_realtime')
-    .filter('restaurant_id', 'eq', restaurantId)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, callback)
-    .subscribe();
+  return sbSubscribePoll(restaurantId, (data) => {
+    if (data.tasks) {
+      callback({ eventType: 'tasks', data: data.tasks });
+    }
+  });
 }
 
-// Channel for tables
 function sbSubscribeTables(restaurantId, callback) {
-  return sb.channel('tables_realtime')
-    .filter('restaurant_id', 'eq', restaurantId)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'restaurant_tables' }, callback)
-    .subscribe();
+  return sbSubscribePoll(restaurantId, (data) => {
+    if (data.tables) {
+      callback({ eventType: 'tables', data: data.tables });
+    }
+  });
 }
 
-// Channel for shifts
 function sbSubscribeShifts(restaurantId, callback) {
-  return sb.channel('shifts_realtime')
-    .filter('restaurant_id', 'eq', restaurantId)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'shifts' }, callback)
-    .subscribe();
+  return sbSubscribePoll(restaurantId, (data) => {
+    if (data.shift) {
+      callback({ eventType: 'shifts', data: data.shift });
+    }
+  });
 }
