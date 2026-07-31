@@ -71,7 +71,7 @@ const SuperAdminScreen = {
 
   async loadClients() {
     try {
-      const allRestaurants = await sbSelect('restaurants', {}, { order: 'created_at', ascending: false });
+      const allRestaurants = await sbSelect('restaurants', {}, { order: 'created_date', ascending: false });
       
       // Get settings for each restaurant
       this.state.clients = allRestaurants || [];
@@ -189,7 +189,7 @@ const SuperAdminScreen = {
                 <span class="w-2 h-2 rounded-full ${c.status === 'active' ? 'bg-green-500' : c.status === 'suspended' ? 'bg-red-500' : 'bg-yellow-500'}"></span>
                 <span class="text-sm font-medium">${Utils.escape(c.name)}</span>
               </div>
-              <span class="text-xs text-gray-400">${Utils.formatDate(c.created_at)}</span>
+              <span class="text-xs text-gray-400">${Utils.formatDate(c.created_date)}</span>
             </div>
           `).join('') || Utils.emptyState('אין לקוחות', '🏢')}
         </div>
