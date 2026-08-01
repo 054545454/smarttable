@@ -6,6 +6,7 @@ const CustomerScreen = {
     restaurant: null,
     settings: null,
     gifts: [],
+    menuItems: [],
     scratchUsed: false,
     activeTasks: [],
     subscriptions: [],
@@ -25,8 +26,8 @@ const CustomerScreen = {
       this.state.restaurant = data.restaurant;
       this.state.settings = data.settings;
       this.state.gifts = data.gifts || [];
+      this.state.menuItems = data.menuItems || [];
       
-      // Check restaurant is active
       if (!Auth.isRestaurantActive(data.restaurant)) {
         app.innerHTML = `
           <div class="min-h-screen flex items-center justify-center bg-gray-900 p-6">
@@ -40,10 +41,8 @@ const CustomerScreen = {
         return;
       }
 
-      // Set language
-      if (data.settings.default_language) setLang(data.settings.default_language);
+      if (data.settings?.default_language) setLang(data.settings.default_language);
       
-      // Check scratch gift
       const deviceId = Utils.getDeviceId();
       this.state.scratchUsed = data.table.scratch_used || 
         sessionStorage.getItem(`scratch_${data.table.id}_${deviceId}`) === 'true';
@@ -64,41 +63,105 @@ const CustomerScreen = {
 
   render() {
     const { table, restaurant, settings } = this.state;
-    const themeClass = `theme-${settings.theme || 'luxury'}`;
+    const themeClass = `theme-${settings?.theme || 'luxury'}`;
+    const viewMode = settings?.customer_view_mode || 'full_menu';
     
+    // Define service buttons based on view mode
+    let serviceButtons = '';
+    if (viewMode === 'full_menu') {
+      serviceButtons = `
+        ${this.renderServiceButton('water', 'requestWater')}
+        ${this.renderServiceButton('bill', 'requestBill')}
+        ${this.renderServiceButton('waiter', 'callWaiter')}
+        ${this.renderServiceButton('wine_menu', 'wineMenu')}
+        ${this.renderServiceButton('dessert_menu', 'dessertMenu')}
+        ${this.renderServiceButton('special', 'specialRequest')}
+      `;
+    } else if (viewMode === 'service_only') {
+      serviceButtons = `
+        ${this.renderServiceButton('water', 'requestWater')}
+        ${this.renderServiceButton('bill', 'requestBill')}
+        ${this.renderServiceButton('waiter', 'callWaiter')}
+        ${this.renderServiceButton('special', 'specialRequest')}
+      `;
+    } else { // minimal
+      serviceButtons = `
+        ${this.renderServiceButton('waiter', 'callWaiter')}
+        ${this.renderServiceButton('bill', 'requestBill')}
+      `;
+    }
+
+    // Build menu section (only in full_menu mode)
+    let menuSection = '';
+    if (viewMode === 'full_menu' && this.state.menuItems.length > 0) {
+      const categories = {};
+      this.state.menuItems.forEach(item => {
+        const cat = item.category || 'other';
+        if (!categories[cat]) categories[cat] = [];
+        categories[cat].push(item);
+      });
+      
+      menuSection = `
+        <div class="px-4 mb-6 max-w-md mx-auto">
+          <h2 class="text-lg font-playfair mb-3 text-center" style="color:var(--accent)">📋 התפריט</h2>
+          ${Object.entries(categories).map(([cat, items]) => `
+            <div class="mb-4">
+              <h3 class="text-sm font-bold mb-2" style="color:var(--text-muted)">${Utils.escape(cat)}</h3>
+              ${items.sort((a,b) => (a.sort_order||0) - (b.sort_order||0)).map(item => `
+                <div class="card mb-2 flex items-center gap-3" style="background:var(--card);border:1px solid var(--border)">
+                  ${item.image_url ? `<img src="${item.image_url}" class="w-14 h-14 rounded-lg object-cover flex-shrink-0">` : ''}
+                  <div class="flex-1">
+                    <div class="font-medium" style="color:var(--text)">${Utils.escape(item.name)}</div>
+                    ${item.description ? `<div class="text-xs mt-0.5" style="color:var(--text-muted)">${Utils.escape(item.description)}</div>` : ''}
+                  </div>
+                  ${item.price ? `<div class="text-sm font-bold" style="color:var(--accent)">₪${item.price}</div>` : ''}
+                </div>
+              `).join('')}
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    // Build gift section (only in full_menu mode)
+    let giftSection = '';
+    if (viewMode === 'full_menu') {
+      giftSection = `<div id="gift-section" class="px-4 mb-6">${this.renderGiftSection()}</div>`;
+    }
+
     document.getElementById('app').innerHTML = `
       <div id="customer-root" class="min-h-screen ${themeClass}" style="background:var(--bg);color:var(--text)">
-        <!-- Header -->
+        <!-- Header with logo -->
         <div class="text-center pt-8 pb-6 px-4">
-          ${settings.logo_url 
-            ? `<img src="${settings.logo_url}" alt="logo" class="mx-auto h-16 mb-2 object-contain">`
+          ${settings?.logo_url 
+            ? `<img src="${settings.logo_url}" alt="logo" class="mx-auto h-20 mb-3 object-contain">`
             : `<h1 class="text-3xl font-playfair" style="color:var(--accent)">${Utils.escape(restaurant.name)}</h1>`
           }
+          ${settings?.logo_url ? `<h2 class="text-lg font-playfair mb-1" style="color:var(--accent)">${Utils.escape(restaurant.name)}</h2>` : ''}
           <p class="text-sm mt-2" style="color:var(--text-muted)">
             ${t('tableNumber')} ${table.table_number} · ${t('welcome')}
           </p>
         </div>
 
-        <!-- Scratch Gift Section -->
-        <div id="gift-section" class="px-4 mb-6">
-          ${this.renderGiftSection()}
-        </div>
+        ${giftSection}
+
+        ${menuSection}
 
         <!-- Service Buttons -->
-        <div class="px-4 pb-8">
+        <div class="px-4 pb-4">
           <div class="grid grid-cols-2 gap-3 max-w-md mx-auto">
-            ${this.renderServiceButton('water', 'requestWater')}
-            ${this.renderServiceButton('bill', 'requestBill')}
-            ${this.renderServiceButton('waiter', 'callWaiter')}
-            ${this.renderServiceButton('wine_menu', 'wineMenu')}
-            ${this.renderServiceButton('dessert_menu', 'dessertMenu')}
-            ${this.renderServiceButton('special', 'specialRequest')}
+            ${serviceButtons}
           </div>
         </div>
 
         <!-- Active task status -->
         <div id="active-tasks" class="px-4 pb-8 max-w-md mx-auto">
           ${this.renderActiveTasks()}
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center pb-6 text-xs" style="color:var(--text-muted);opacity:0.5">
+          Powered by SmartTable
         </div>
       </div>
     `;
@@ -167,66 +230,23 @@ const CustomerScreen = {
   },
 
   attachEvents() {
-    // Scratch overlay
     const overlay = document.getElementById('scratch-overlay');
     if (overlay) this.setupScratch(overlay);
     
-    // Service buttons
     document.querySelectorAll('.service-btn').forEach(btn => {
       btn.addEventListener('click', () => this.requestService(btn.dataset.taskType));
     });
   },
 
   setupScratch(overlay) {
-    const prize = document.getElementById('scratch-prize');
     let isScratching = false;
-    const ctx = document.createElement('canvas').getContext('2d');
+    let scratchCount = 0;
     
-    // Use pointer events for mobile
     const handleMove = (e) => {
       if (!isScratching) return;
       e.preventDefault();
-      const rect = overlay.getBoundingClientRect();
-      const x = (e.clientX || e.touches?.[0]?.clientX || 0) - rect.left;
-      const y = (e.clientY || e.touches?.[0]?.clientY || 0) - rect.top;
-      
-      // Create "scratch" effect by making overlay transparent in circles
-      const ctx2 = overlay.getContext ? overlay.getContext('2d') : null;
-      if (ctx2) {
-        ctx2.globalCompositeOperation = 'destination-out';
-        ctx2.beginPath();
-        ctx2.arc(x, y, 25, 0, Math.PI * 2);
-        ctx2.fill();
-      } else {
-        // Fallback: fade out on touch
-        overlay.style.opacity = String(Math.max(0, parseFloat(overlay.style.opacity || '1') - 0.1));
-      }
-      
-      // Check if enough scratched
-      checkScratchProgress();
-    };
-    
-    const checkScratchProgress = () => {
-      const opacity = parseFloat(overlay.style.opacity || '1');
-      if (opacity < 0.3) {
-        overlay.style.display = 'none';
-        this.claimGift();
-      }
-    };
-    
-    overlay.addEventListener('pointerdown', (e) => { isScratching = true; handleMove(e); });
-    overlay.addEventListener('pointermove', handleMove);
-    overlay.addEventListener('pointerup', () => { 
-      isScratching = false;
-      checkScratchProgress();
-    });
-    overlay.addEventListener('pointerleave', () => isScratching = false);
-    
-    // Simple approach: just remove overlay after sufficient interaction
-    let scratchCount = 0;
-    overlay.addEventListener('pointermove', () => {
       scratchCount++;
-      if (scratchCount > 15) {
+      if (scratchCount > 12) {
         overlay.style.transition = 'opacity 0.5s';
         overlay.style.opacity = '0';
         setTimeout(() => {
@@ -234,7 +254,12 @@ const CustomerScreen = {
           this.claimGift();
         }, 500);
       }
-    });
+    };
+    
+    overlay.addEventListener('pointerdown', (e) => { isScratching = true; handleMove(e); });
+    overlay.addEventListener('pointermove', handleMove);
+    overlay.addEventListener('pointerup', () => { isScratching = false; });
+    overlay.addEventListener('pointerleave', () => isScratching = false);
   },
 
   async claimGift() {
@@ -244,7 +269,6 @@ const CustomerScreen = {
     
     Utils.toast('🎉 ' + t('scratchGift'));
     
-    // Create gift task
     try {
       await sbInsert('tasks', {
         restaurant_id: this.state.restaurant.id,
@@ -255,14 +279,12 @@ const CustomerScreen = {
       });
     } catch(e) { console.error(e); }
     
-    // Update table scratch_used
     try {
       await sbUpdate('restaurant_tables', { id: this.state.table.id }, { scratch_used: true });
     } catch(e) { console.error(e); }
   },
 
   async requestService(type) {
-    // Check for existing open task of same type for this table
     const existing = this.state.activeTasks.find(t => t.type === type && t.status === 'open');
     if (existing) {
       Utils.toast(t('requestSent'));
@@ -281,8 +303,9 @@ const CustomerScreen = {
         status: 'open',
       });
       
-      this.state.activeTasks.push(result[0]);
-      this.render();
+      this.state.activeTasks.push(Array.isArray(result) ? result[0] : result);
+      const container = document.getElementById('active-tasks');
+      if (container) container.innerHTML = this.renderActiveTasks();
     } catch(e) {
       Utils.toast('שגיאה בשליחת בקשה');
       console.error(e);
@@ -290,14 +313,10 @@ const CustomerScreen = {
   },
 
   setupRealtime() {
-    const sub = sbSubscribeTasks(this.state.restaurant.id, (payload) => {
-      if (payload.eventType === 'UPDATE' || payload.eventType === 'DELETE') {
-        // Refresh active tasks for this table
-        this.refreshActiveTasks();
-      }
+    const sub = sbSubscribeTasks(this.state.restaurant.id, () => {
+      this.refreshActiveTasks();
     });
     this.state.subscriptions.push(sub);
-    
     this.refreshActiveTasks();
   },
 
@@ -306,10 +325,9 @@ const CustomerScreen = {
       const tasks = await sbSelect('tasks', {
         restaurant_id: this.state.restaurant.id,
         table_id: this.state.table.id,
-        status: { in: ['open', 'in_progress'] },
-      }, { order: { column: 'created_at', ascending: true } });
+      });
       
-      this.state.activeTasks = tasks || [];
+      this.state.activeTasks = (tasks || []).filter(t => t.status === 'open' || t.status === 'in_progress');
       
       const container = document.getElementById('active-tasks');
       if (container) container.innerHTML = this.renderActiveTasks();

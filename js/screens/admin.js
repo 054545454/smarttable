@@ -1,4 +1,4 @@
-// SmartTable — Admin/Owner Screen (Dashboard, Settings, Menu, Gifts, Reports, AI Chat, Tables)
+// SmartTable — Admin/Owner Screen (Dashboard, Tables, Settings, Menu, Gifts, Reports, AI)
 const AdminScreen = {
   state: {
     restaurantId: null,
@@ -11,6 +11,10 @@ const AdminScreen = {
     tables: [],
     selectedTable: null,
     draggedTable: null,
+    menuItems: [],
+    gifts: [],
+    editingMenuItem: null,
+    editingGift: null,
   },
 
   init(restaurantId) {
@@ -19,7 +23,6 @@ const AdminScreen = {
     
     if (saved && saved.restaurant_id === restaurantId) {
       this.state.admin = saved;
-      // Check if must change password
       if (saved.must_change_password) {
         Auth.showChangePasswordScreen(saved, true);
         return;
@@ -65,10 +68,7 @@ const AdminScreen = {
         this.state.admin = Auth.current;
         this.start();
       } catch(e) {
-        if (e.message === 'MUST_CHANGE_PASSWORD') {
-          // Already handled by Auth
-          return;
-        }
+        if (e.message === 'MUST_CHANGE_PASSWORD') return;
         const errEl = document.getElementById('admin-error');
         errEl.textContent = e.message;
         errEl.classList.remove('hidden');
@@ -80,6 +80,8 @@ const AdminScreen = {
     await this.loadRestaurant();
     await this.loadSettings();
     await this.loadStats();
+    await this.loadMenuItems();
+    await this.loadGifts();
     if (!this.state.settings || !this.state.settings.theme) {
       this.state.tab = 'setup';
     }
@@ -88,15 +90,15 @@ const AdminScreen = {
 
   async loadRestaurant() {
     try {
-      const allRestaurants = await sbSelect('restaurants', { id: this.state.restaurantId });
-      this.state.restaurant = allRestaurants[0] || null;
+      const all = await sbSelect('restaurants', { id: this.state.restaurantId });
+      this.state.restaurant = all[0] || null;
     } catch(e) { console.error(e); }
   },
 
   async loadSettings() {
     try {
-      const allSettings = await sbSelect('restaurant_settings', { restaurant_id: this.state.restaurantId });
-      this.state.settings = allSettings[0] || null;
+      const all = await sbSelect('restaurant_settings', { restaurant_id: this.state.restaurantId });
+      this.state.settings = all[0] || null;
     } catch(e) { this.state.settings = null; }
   },
 
@@ -124,6 +126,20 @@ const AdminScreen = {
     } catch(e) { console.error(e); this.state.tables = []; }
   },
 
+  async loadMenuItems() {
+    try {
+      this.state.menuItems = await sbSelect('menu_items', { restaurant_id: this.state.restaurantId }, {
+        order: 'sort_order', ascending: true,
+      });
+    } catch(e) { console.error(e); this.state.menuItems = []; }
+  },
+
+  async loadGifts() {
+    try {
+      this.state.gifts = await sbSelect('gifts', { restaurant_id: this.state.restaurantId });
+    } catch(e) { console.error(e); this.state.gifts = []; }
+  },
+
   render() {
     const { restaurant, tab } = this.state;
     document.getElementById('app').innerHTML = `
@@ -148,7 +164,6 @@ const AdminScreen = {
             ${this.renderTab('menu', '📋')}
             ${this.renderTab('gifts', '🎁')}
             ${this.renderTab('reports', '📈')}
-            ${this.renderTab('ai', '🤖')}
           </div>
         </div>
         <div class="max-w-4xl mx-auto p-4" id="admin-content">
@@ -161,11 +176,7 @@ const AdminScreen = {
   },
 
   renderTab(tabId, icon) {
-    const labels = {
-      dashboard: t('dashboard'), settings: t('settings'), menu: t('menu'),
-      gifts: t('gifts'), reports: t('reports'), ai: t('aiChat'), setup: t('setupWizard'),
-      tables: 'שולחנות',
-    };
+    const labels = { dashboard: t('dashboard'), settings: t('settings'), menu: t('menu'), gifts: t('gifts'), reports: t('reports'), setup: t('setupWizard'), tables: 'שולחנות' };
     const isActive = this.state.tab === tabId;
     return `<button data-tab="${tabId}" class="px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${isActive ? 'border-gold text-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}">${icon} ${labels[tabId] || tabId}</button>`;
   },
@@ -178,7 +189,6 @@ const AdminScreen = {
       case 'menu': return this.renderMenu();
       case 'gifts': return this.renderGifts();
       case 'reports': return this.renderReports();
-      case 'ai': return this.renderAI();
       case 'setup': return this.renderSetupWizard();
       default: return this.renderDashboard();
     }
@@ -193,11 +203,19 @@ const AdminScreen = {
         <div class="card text-center"><div class="text-3xl font-bold text-blue-500">${s.avgResponseTime || 0}<span class="text-sm">s</span></div><div class="text-xs text-gray-500 mt-1">ממוצע תגובה</div></div>
         <div class="card text-center"><div class="text-3xl font-bold text-orange-500">${s.openTasks || 0}</div><div class="text-xs text-gray-500 mt-1">פתוחות כעת</div></div>
       </div>
-      <div class="card"><h3 class="font-semibold text-gray-700 mb-2">פעילות אחרונה</h3><p class="text-gray-400 text-sm">טען נתונים נוספים מכאן...</p></div>
+      <div class="card">
+        <h3 class="font-semibold text-gray-700 mb-3">תקציר מהיר</h3>
+        <div class="space-y-2 text-sm text-gray-600">
+          <div class="flex justify-between py-1"><span>🪑 שולחנות:</span><span class="font-medium">${this.state.tables.length || '—'}</span></div>
+          <div class="flex justify-between py-1"><span>📋 פריטי תפריט:</span><span class="font-medium">${this.state.menuItems.length}</span></div>
+          <div class="flex justify-between py-1"><span>🎁 מתנות פעילות:</span><span class="font-medium">${this.state.gifts.filter(g => g.is_active).length}</span></div>
+          <div class="flex justify-between py-1"><span>🎨 ערכת נושא:</span><span class="font-medium">${CONFIG.themes[this.state.settings?.theme]?.name || 'לוקסורי'}</span></div>
+        </div>
+      </div>
     `;
   },
 
-  // --- TABLES: Floor plan with drag-and-drop + QR generation ---
+  // --- TABLES ---
   renderTables() {
     return `
       <div class="space-y-4">
@@ -233,125 +251,69 @@ const AdminScreen = {
 
   async initTablesView() {
     await this.loadTables();
-    this.renderTablesOnly();
-    this.initDragAndDrop();
-  },
-
-  renderTablesOnly() {
     const floorPlan = document.getElementById('floor-plan');
     if (floorPlan) {
       floorPlan.innerHTML = this.state.tables.map(t => this.renderTableOnFloor(t)).join('');
-      // Add click handlers
       floorPlan.querySelectorAll('[data-table-id]').forEach(el => {
-        el.addEventListener('click', (e) => {
+        el.addEventListener('click', () => {
           if (!this.state.draggedTable) {
-            const tableId = el.dataset.tableId;
-            const table = this.state.tables.find(t => t.id === tableId);
+            const table = this.state.tables.find(t => t.id === el.dataset.tableId);
             if (table) this.showTableDetails(table);
           }
         });
       });
+      this.initDragAndDrop(floorPlan);
     }
   },
 
-  initDragAndDrop() {
-    const floorPlan = document.getElementById('floor-plan');
-    if (!floorPlan) return;
+  initDragAndDrop(floorPlan) {
+    let dragEl = null, startX = 0, startY = 0, origX = 0, origY = 0, hasMoved = false;
     
-    let dragEl = null;
-    let startX = 0, startY = 0;
-    let origX = 0, origY = 0;
-    let hasMoved = false;
+    const start = (clientX, clientY, el) => {
+      dragEl = el; hasMoved = false;
+      startX = clientX; startY = clientY;
+      origX = parseInt(el.style.left) || 0;
+      origY = parseInt(el.style.top) || 0;
+      el.style.opacity = '0.7'; el.style.zIndex = '100';
+    };
+    
+    const move = (clientX, clientY) => {
+      if (!dragEl) return;
+      const dx = clientX - startX, dy = clientY - startY;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMoved = true;
+      const newX = Math.max(0, Math.min(floorPlan.offsetWidth - 80, origX + dx));
+      const newY = Math.max(0, Math.min(floorPlan.offsetHeight - 80, origY + dy));
+      dragEl.style.left = newX + 'px'; dragEl.style.top = newY + 'px';
+    };
+    
+    const end = () => {
+      if (!dragEl) return;
+      dragEl.style.opacity = '1'; dragEl.style.zIndex = '1';
+      if (hasMoved) {
+        const tid = dragEl.dataset.tableId;
+        const nx = Math.round(parseInt(dragEl.style.left)), ny = Math.round(parseInt(dragEl.style.top));
+        apiCall({ action: 'updateTablePosition', data: { table_id: tid, pos_x: nx, pos_y: ny } }).catch(console.error);
+        const t = this.state.tables.find(t => t.id === tid);
+        if (t) { t.pos_x = nx; t.pos_y = ny; }
+        this.state.draggedTable = true;
+        setTimeout(() => { this.state.draggedTable = null; }, 100);
+      }
+      dragEl = null;
+    };
     
     floorPlan.addEventListener('mousedown', (e) => {
-      const item = e.target.closest('.table-floor-item');
-      if (!item) return;
-      e.preventDefault();
-      dragEl = item;
-      hasMoved = false;
-      const rect = item.getBoundingClientRect();
-      startX = e.clientX;
-      startY = e.clientY;
-      origX = parseInt(item.style.left) || 0;
-      origY = parseInt(item.style.top) || 0;
-      item.style.opacity = '0.7';
-      item.style.zIndex = '100';
-      this.state.draggedTable = null;
+      const item = e.target.closest('.table-floor-item'); if (!item) return;
+      e.preventDefault(); start(e.clientX, e.clientY, item);
     });
+    document.addEventListener('mousemove', (e) => move(e.clientX, e.clientY));
+    document.addEventListener('mouseup', end);
     
-    document.addEventListener('mousemove', (e) => {
-      if (!dragEl) return;
-      const dx = e.clientX - startX;
-      const dy = e.clientY - startY;
-      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMoved = true;
-      const newX = Math.max(0, Math.min(floorPlan.offsetWidth - 80, origX + dx));
-      const newY = Math.max(0, Math.min(floorPlan.offsetHeight - 80, origY + dy));
-      dragEl.style.left = newX + 'px';
-      dragEl.style.top = newY + 'px';
-    });
-    
-    document.addEventListener('mouseup', (e) => {
-      if (!dragEl) return;
-      dragEl.style.opacity = '1';
-      dragEl.style.zIndex = '1';
-      if (hasMoved) {
-        const tableId = dragEl.dataset.tableId;
-        const newX = Math.round(parseInt(dragEl.style.left));
-        const newY = Math.round(parseInt(dragEl.style.top));
-        // Update position via API
-        apiCall({ action: 'updateTablePosition', data: { table_id: tableId, pos_x: newX, pos_y: newY } })
-          .catch(err => console.error('Position update failed:', err));
-        // Update local state
-        const table = this.state.tables.find(t => t.id === tableId);
-        if (table) { table.pos_x = newX; table.pos_y = newY; }
-        this.state.draggedTable = true;
-        setTimeout(() => { this.state.draggedTable = null; }, 100);
-      }
-      dragEl = null;
-    });
-    
-    // Touch support
     floorPlan.addEventListener('touchstart', (e) => {
-      const item = e.target.closest('.table-floor-item');
-      if (!item) return;
-      const touch = e.touches[0];
-      dragEl = item;
-      hasMoved = false;
-      startX = touch.clientX;
-      startY = touch.clientY;
-      origX = parseInt(item.style.left) || 0;
-      origY = parseInt(item.style.top) || 0;
-      item.style.opacity = '0.7';
+      const item = e.target.closest('.table-floor-item'); if (!item) return;
+      const t = e.touches[0]; start(t.clientX, t.clientY, item);
     }, { passive: true });
-    
-    document.addEventListener('touchmove', (e) => {
-      if (!dragEl) return;
-      const touch = e.touches[0];
-      const dx = touch.clientX - startX;
-      const dy = touch.clientY - startY;
-      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMoved = true;
-      const newX = Math.max(0, Math.min(floorPlan.offsetWidth - 80, origX + dx));
-      const newY = Math.max(0, Math.min(floorPlan.offsetHeight - 80, origY + dy));
-      dragEl.style.left = newX + 'px';
-      dragEl.style.top = newY + 'px';
-    }, { passive: true });
-    
-    document.addEventListener('touchend', () => {
-      if (!dragEl) return;
-      dragEl.style.opacity = '1';
-      if (hasMoved) {
-        const tableId = dragEl.dataset.tableId;
-        const newX = Math.round(parseInt(dragEl.style.left));
-        const newY = Math.round(parseInt(dragEl.style.top));
-        apiCall({ action: 'updateTablePosition', data: { table_id: tableId, pos_x: newX, pos_y: newY } })
-          .catch(err => console.error('Position update failed:', err));
-        const table = this.state.tables.find(t => t.id === tableId);
-        if (table) { table.pos_x = newX; table.pos_y = newY; }
-        this.state.draggedTable = true;
-        setTimeout(() => { this.state.draggedTable = null; }, 100);
-      }
-      dragEl = null;
-    });
+    document.addEventListener('touchmove', (e) => { if (dragEl) { const t = e.touches[0]; move(t.clientX, t.clientY); } }, { passive: true });
+    document.addEventListener('touchend', end);
   },
 
   showTableDetails(table) {
@@ -362,15 +324,11 @@ const AdminScreen = {
       <div class="min-h-screen bg-gray-50">
         <div class="bg-gray-900 text-white px-4 py-3 sticky top-0 z-10 shadow-lg">
           <div class="flex items-center justify-between max-w-4xl mx-auto">
-            <div class="flex items-center gap-2">
-              <span class="text-xl">🪑</span>
-              <div><h1 class="text-lg font-semibold">שולחן מספר ${table.table_number}</h1></div>
-            </div>
+            <div class="flex items-center gap-2"><span class="text-xl">🪑</span><h1 class="text-lg font-semibold">שולחן מספר ${table.table_number}</h1></div>
             <button id="back-to-tables" class="text-gray-400 hover:text-white text-sm">← חזרה</button>
           </div>
         </div>
         <div class="max-w-2xl mx-auto p-4 space-y-4">
-          <!-- QR Code -->
           <div class="card text-center">
             <h3 class="font-semibold text-gray-700 mb-3">ברקוד QR</h3>
             <div class="inline-block p-4 bg-white rounded-xl border-2 border-gray-200">
@@ -382,83 +340,42 @@ const AdminScreen = {
             </div>
             <p class="text-xs text-gray-400 mt-2 break-all">${qrUrl}</p>
           </div>
-          
-          <!-- Table Details -->
           <div class="card space-y-3">
             <h3 class="font-semibold text-gray-700 mb-2">פרטי השולחן</h3>
             <form id="edit-table-form" class="space-y-3">
-              <div>
-                <label class="text-sm text-gray-600 mb-1 block">מספר שולחן</label>
-                <input type="number" id="edit-table-number" class="input-field" value="${table.table_number}" min="1">
-              </div>
-              <div>
-                <label class="text-sm text-gray-600 mb-1 block">הערות</label>
-                <textarea id="edit-table-notes" class="input-field" rows="3">${Utils.escape(table.notes || '')}</textarea>
-              </div>
+              <div><label class="text-sm text-gray-600 mb-1 block">מספר שולחן</label><input type="number" id="edit-table-number" class="input-field" value="${table.table_number}" min="1"></div>
+              <div><label class="text-sm text-gray-600 mb-1 block">הערות</label><textarea id="edit-table-notes" class="input-field" rows="3">${Utils.escape(table.notes || '')}</textarea></div>
               <button type="submit" class="btn-primary w-full">שמור שינויים</button>
             </form>
           </div>
-          
-          <!-- Status -->
           <div class="card flex items-center justify-between">
-            <div>
-              <div class="text-sm text-gray-500">סטטוס</div>
-              <div class="font-semibold ${table.is_open ? 'text-green-500' : 'text-gray-600'}">${table.is_open ? '🟢 פתוח' : '⚫ סגור'}</div>
-            </div>
+            <div><div class="text-sm text-gray-500">סטטוס</div><div class="font-semibold ${table.is_open ? 'text-green-500' : 'text-gray-600'}">${table.is_open ? '🟢 פתוח' : '⚫ סגור'}</div></div>
             <button id="toggle-table-status" class="btn-secondary text-sm">${table.is_open ? 'סגור שולחן' : 'פתח שולחן'}</button>
           </div>
-          
           <p id="table-edit-msg" class="text-center text-sm hidden"></p>
         </div>
       </div>
     `;
     
-    // Back button
-    document.getElementById('back-to-tables').addEventListener('click', () => {
-      this.state.tab = 'tables';
-      this.render();
-      this.initTablesView();
-    });
-    
-    // Edit form
+    document.getElementById('back-to-tables').addEventListener('click', () => { this.state.tab = 'tables'; this.render(); this.initTablesView(); });
     document.getElementById('edit-table-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const msg = document.getElementById('table-edit-msg');
       try {
-        await sbUpdate('restaurant_tables', { id: table.id }, {
-          table_number: parseInt(document.getElementById('edit-table-number').value),
-          notes: document.getElementById('edit-table-notes').value.trim(),
-        });
-        msg.textContent = '✅ נשמר בהצלחה';
-        msg.className = 'text-center text-sm text-green-500';
+        await sbUpdate('restaurant_tables', { id: table.id }, { table_number: parseInt(document.getElementById('edit-table-number').value), notes: document.getElementById('edit-table-notes').value.trim() });
+        msg.textContent = '✅ נשמר'; msg.className = 'text-center text-sm text-green-500';
         await this.loadTables();
-      } catch (err) {
-        msg.textContent = '❌ שגיאה: ' + err.message;
-        msg.className = 'text-center text-sm text-red-500';
-      }
+      } catch (err) { msg.textContent = '❌ ' + err.message; msg.className = 'text-center text-sm text-red-500'; }
       msg.classList.remove('hidden');
     });
-    
-    // Toggle status
     document.getElementById('toggle-table-status').addEventListener('click', async () => {
-      try {
-        await sbUpdate('restaurant_tables', { id: table.id }, { is_open: !table.is_open });
-        await this.loadTables();
-        this.showTableDetails(this.state.tables.find(t => t.id === table.id) || table);
-      } catch (err) { console.error(err); }
+      try { await sbUpdate('restaurant_tables', { id: table.id }, { is_open: !table.is_open }); await this.loadTables(); this.showTableDetails(this.state.tables.find(t => t.id === table.id) || table); } catch(e) {}
     });
-    
-    // Print QR
-    document.getElementById('print-qr-btn').addEventListener('click', () => {
-      const w = window.open(qrImageUrl, '_blank');
-      w.onload = () => w.print();
-    });
+    document.getElementById('print-qr-btn').addEventListener('click', () => { const w = window.open(qrImageUrl, '_blank'); w.onload = () => w.print(); });
   },
 
-  // --- Add table form ---
   showAddTableForm() {
     const nextNum = Math.max(0, ...this.state.tables.map(t => t.table_number || 0)) + 1;
-    
     document.getElementById('app').innerHTML = `
       <div class="min-h-screen bg-gray-50">
         <div class="bg-gray-900 text-white px-4 py-3 sticky top-0 z-10 shadow-lg">
@@ -469,136 +386,485 @@ const AdminScreen = {
         </div>
         <div class="max-w-md mx-auto p-4">
           <form id="add-table-form" class="card space-y-4">
-            <div>
-              <label class="text-sm text-gray-600 mb-1 block">מספר שולחן</label>
-              <input type="number" id="new-table-number" class="input-field" value="${nextNum}" min="1" required>
-            </div>
-            <div>
-              <label class="text-sm text-gray-600 mb-1 block">הערות</label>
-              <textarea id="new-table-notes" class="input-field" rows="3" placeholder="הערות אופציונליות"></textarea>
-            </div>
-            <p class="text-sm text-gray-400">סטטוס השולחן יתחיל כסגור. ניתן לפתוח אותו לאחר ההוספה.</p>
+            <div><label class="text-sm text-gray-600 mb-1 block">מספר שולחן</label><input type="number" id="new-table-number" class="input-field" value="${nextNum}" min="1" required></div>
+            <div><label class="text-sm text-gray-600 mb-1 block">הערות</label><textarea id="new-table-notes" class="input-field" rows="3" placeholder="הערות אופציונליות"></textarea></div>
             <p id="add-table-msg" class="text-center text-sm hidden"></p>
             <button type="submit" class="btn-primary w-full">צור שולחן + ברקוד</button>
           </form>
         </div>
       </div>
     `;
-    
-    document.getElementById('back-to-tables').addEventListener('click', () => {
-      this.state.tab = 'tables';
-      this.render();
-      this.initTablesView();
-    });
-    
+    document.getElementById('back-to-tables').addEventListener('click', () => { this.state.tab = 'tables'; this.render(); this.initTablesView(); });
     document.getElementById('add-table-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const msg = document.getElementById('add-table-msg');
       try {
-        await apiCall({
-          action: 'generateTableQr',
-          data: {
-            restaurant_id: this.state.restaurantId,
-            table_number: parseInt(document.getElementById('new-table-number').value),
-            notes: document.getElementById('new-table-notes').value.trim(),
-          },
-        });
-        msg.textContent = '✅ שולחן נוצר בהצלחה!';
-        msg.className = 'text-center text-sm text-green-500';
-        msg.classList.remove('hidden');
+        await apiCall({ action: 'generateTableQr', data: { restaurant_id: this.state.restaurantId, table_number: parseInt(document.getElementById('new-table-number').value), notes: document.getElementById('new-table-notes').value.trim() } });
+        msg.textContent = '✅ נוצר!'; msg.className = 'text-center text-sm text-green-500'; msg.classList.remove('hidden');
         await this.loadTables();
         setTimeout(() => { this.state.tab = 'tables'; this.render(); this.initTablesView(); }, 1500);
-      } catch (err) {
-        msg.textContent = '❌ שגיאה: ' + err.message;
-        msg.className = 'text-center text-sm text-red-500';
-        msg.classList.remove('hidden');
-      }
+      } catch (err) { msg.textContent = '❌ ' + err.message; msg.className = 'text-center text-sm text-red-500'; msg.classList.remove('hidden'); }
     });
   },
 
-  // --- Settings (kept from original) ---
+  // --- SETTINGS with logo, view mode, themes ---
   renderSettings() {
     const s = this.state.settings || {};
+    const theme = s.theme || 'luxury';
+    const viewMode = s.customer_view_mode || 'full_menu';
+    
     return `
       <div class="space-y-4">
+        <!-- Logo Upload -->
         <div class="card">
-          <h3 class="font-semibold text-gray-700 mb-3">${t('theme')}</h3>
+          <h3 class="font-semibold text-gray-700 mb-3">🖼️ לוגו המסעדה</h3>
+          <div class="flex items-center gap-4">
+            ${s.logo_url ? `<img src="${s.logo_url}" class="w-20 h-20 rounded-lg object-contain border border-gray-200 bg-white p-1" id="logo-preview">` : '<div class="w-20 h-20 rounded-lg bg-gray-100 flex items-center justify-center text-3xl text-gray-300">🖼️</div>'}
+            <div class="flex-1">
+              <input type="file" id="logo-upload" accept="image/*" class="hidden">
+              <button id="logo-upload-btn" class="btn-secondary text-sm">העלה לוגו</button>
+              ${s.logo_url ? `<button id="logo-remove-btn" class="btn-secondary text-sm text-red-500 mr-2">הסר</button>` : ''}
+              <p class="text-xs text-gray-400 mt-2">מומלץ: תמונה מרובעת, עד 200KB. פורמט: PNG/JPG.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Theme Selection with Live Preview -->
+        <div class="card">
+          <h3 class="font-semibold text-gray-700 mb-3">🎨 ערכת נושא</h3>
           <div class="grid grid-cols-3 gap-3">
-            ${Object.entries(CONFIG.themes).map(([key, theme]) => `
-              <button data-theme="${key}" class="p-3 rounded-xl border-2 transition-all ${s.theme === key ? 'border-gold' : 'border-gray-200'}">
-                <div class="w-full h-12 rounded-lg mb-2" style="background:${theme.bg};border:1px solid ${theme.accent}"></div>
-                <div class="text-sm font-medium text-gray-700">${theme.name}</div>
+            ${Object.entries(CONFIG.themes).map(([key, t]) => `
+              <button data-theme="${key}" class="p-3 rounded-xl border-2 transition-all ${theme === key ? 'border-gold' : 'border-gray-200'}">
+                <div class="w-full h-12 rounded-lg mb-2" style="background:${t.bg};border:1px solid ${t.accent}"></div>
+                <div class="text-sm font-medium text-gray-700">${t.name}</div>
               </button>
             `).join('')}
           </div>
-        </div>
-        <div class="card">
-          <h3 class="font-semibold text-gray-700 mb-3">${t('escalation')}</h3>
-          <div class="grid grid-cols-3 gap-3">
-            <div><label class="text-sm text-gray-600">${t('greenMinutes')}</label><input type="number" id="esc-green" class="input-field mt-1" value="${s.escalation_green_minutes || CONFIG.escalationDefaults.green}" min="1" max="30"></div>
-            <div><label class="text-sm text-gray-600">${t('orangeMinutes')}</label><input type="number" id="esc-orange" class="input-field mt-1" value="${s.escalation_orange_minutes || CONFIG.escalationDefaults.orange}" min="2" max="60"></div>
-            <div><label class="text-sm text-gray-600">${t('redMinutes')}</label><input type="number" id="esc-red" class="input-field mt-1" value="${s.escalation_alert_minutes || CONFIG.escalationDefaults.red}" min="3" max="120"></div>
+          <!-- Live Preview -->
+          <div class="mt-4 p-4 rounded-xl theme-${theme}" style="background:var(--bg);border:1px solid var(--border)">
+            <div class="text-center mb-3">
+              ${s.logo_url ? `<img src="${s.logo_url}" class="mx-auto h-12 object-contain">` : `<h4 class="font-playfair" style="color:var(--accent)">${Utils.escape(this.state.restaurant?.name || 'מסעדה')}</h4>`}
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div class="rounded-lg p-3 text-center" style="background:var(--card);border:1px solid var(--border)"><span style="color:var(--text)">💧 מים</span></div>
+              <div class="rounded-lg p-3 text-center" style="background:var(--card);border:1px solid var(--border)"><span style="color:var(--text)">🧾 חשבון</span></div>
+            </div>
           </div>
-          <button id="save-settings" class="btn-primary mt-4 w-full">שמור הגדרות</button>
+        </div>
+
+        <!-- Customer View Mode -->
+        <div class="card">
+          <h3 class="font-semibold text-gray-700 mb-3">📱 תצוגת לקוח</h3>
+          <p class="text-sm text-gray-500 mb-3">בחר מה הלקוח רואה כשהוא סורק את הברקוד:</p>
+          <div class="space-y-2">
+            <label class="flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${viewMode === 'full_menu' ? 'border-gold bg-gold/5' : 'border-gray-200'}">
+              <input type="radio" name="view-mode" value="full_menu" ${viewMode === 'full_menu' ? 'checked' : ''} class="text-gold">
+              <div><div class="font-medium text-gray-700">תפריט מלא</div><div class="text-xs text-gray-400">לוגו + מתנה + תפריט + כל כפתורי השירות</div></div>
+            </label>
+            <label class="flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${viewMode === 'service_only' ? 'border-gold bg-gold/5' : 'border-gray-200'}">
+              <input type="radio" name="view-mode" value="service_only" ${viewMode === 'service_only' ? 'checked' : ''} class="text-gold">
+              <div><div class="font-medium text-gray-700">שירותים בלבד</div><div class="text-xs text-gray-400">לוגו + כפתורי שירות (מים, חשבון, מלצר, בקשה מיוחדת)</div></div>
+            </label>
+            <label class="flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${viewMode === 'minimal' ? 'border-gold bg-gold/5' : 'border-gray-200'}">
+              <input type="radio" name="view-mode" value="minimal" ${viewMode === 'minimal' ? 'checked' : ''} class="text-gold">
+              <div><div class="font-medium text-gray-700">מינימלי</div><div class="text-xs text-gray-400">לוגו + כפתור מלצר + כפתור חשבון בלבד</div></div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Escalation Settings -->
+        <div class="card">
+          <h3 class="font-semibold text-gray-700 mb-3">⏱️ דחיפות וזמני תגובה</h3>
+          <div class="grid grid-cols-3 gap-3">
+            <div><label class="text-sm text-gray-600">🟢 ירוק (דקות)</label><input type="number" id="esc-green" class="input-field mt-1" value="${s.escalation_green_minutes || CONFIG.escalationDefaults.green}" min="1" max="30"></div>
+            <div><label class="text-sm text-gray-600">🟠 כתום (דקות)</label><input type="number" id="esc-orange" class="input-field mt-1" value="${s.escalation_orange_minutes || CONFIG.escalationDefaults.orange}" min="2" max="60"></div>
+            <div><label class="text-sm text-gray-600">🔴 אדום (דקות)</label><input type="number" id="esc-red" class="input-field mt-1" value="${s.escalation_alert_minutes || CONFIG.escalationDefaults.red}" min="3" max="120"></div>
+          </div>
+        </div>
+
+        <!-- Operating Hours -->
+        <div class="card">
+          <h3 class="font-semibold text-gray-700 mb-3">🕐 שעות פעילות</h3>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="text-sm text-gray-600">פתיחה</label><input type="time" id="open-hour" class="input-field mt-1" value="${s.operating_hours?.open || '10:00'}"></div>
+            <div><label class="text-sm text-gray-600">סגירה</label><input type="time" id="close-hour" class="input-field mt-1" value="${s.operating_hours?.close || '23:00'}"></div>
+          </div>
+        </div>
+
+        <button id="save-settings" class="btn-primary w-full">שמור הגדרות</button>
+        <p id="settings-msg" class="text-center text-sm hidden"></p>
+      </div>
+    `;
+  },
+
+  // --- MENU MANAGEMENT ---
+  renderMenu() {
+    if (this.state.editingMenuItem !== null) return this.renderMenuItemForm();
+    
+    const items = this.state.menuItems;
+    const categories = {};
+    items.forEach(item => {
+      const cat = item.category || 'כללי';
+      if (!categories[cat]) categories[cat] = [];
+      categories[cat].push(item);
+    });
+    
+    return `
+      <div class="space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-semibold text-gray-800">📋 ניהול תפריט (${items.length})</h2>
+          <button id="add-menu-item-btn" class="btn-primary text-sm">+ הוסף פריט</button>
+        </div>
+        ${items.length === 0 ? Utils.emptyState('אין פריטים בתפריט', '📋') : ''}
+        ${Object.entries(categories).map(([cat, catItems]) => `
+          <div class="card">
+            <h3 class="font-semibold text-gray-700 mb-3">${Utils.escape(cat)} (${catItems.length})</h3>
+            <div class="space-y-2">
+              ${catItems.map(item => `
+                <div class="flex items-center gap-3 py-2 border-b last:border-0">
+                  ${item.image_url ? `<img src="${item.image_url}" class="w-12 h-12 rounded-lg object-cover">` : '<div class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center text-xl">🍽️</div>'}
+                  <div class="flex-1">
+                    <div class="font-medium text-gray-800">${Utils.escape(item.name)}</div>
+                    <div class="text-xs text-gray-400">${Utils.escape(item.description || '')}</div>
+                  </div>
+                  <div class="text-sm font-bold text-gold">₪${item.price || 0}</div>
+                  <span class="text-xs px-2 py-1 rounded ${item.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}">${item.is_active ? 'פעיל' : 'מוסתר'}</span>
+                  <button data-edit-menu="${item.id}" class="text-blue-500 text-sm px-2">✏️</button>
+                  <button data-delete-menu="${item.id}" class="text-red-500 text-sm px-2">🗑️</button>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  },
+
+  renderMenuItemForm() {
+    const item = this.state.editingMenuItem || {};
+    const isEdit = !!item.id;
+    
+    return `
+      <div class="space-y-4">
+        <button id="back-to-menu" class="text-sm text-gray-500 hover:text-gray-700">← חזרה לתפריט</button>
+        <div class="card max-w-lg mx-auto">
+          <h2 class="text-xl font-semibold text-gray-800 mb-4">${isEdit ? 'עריכת פריט' : 'פריט חדש'}</h2>
+          <form id="menu-item-form" class="space-y-4">
+            <div><label class="text-sm text-gray-600 mb-1 block">שם מנה *</label><input type="text" id="menu-name" class="input-field" required value="${Utils.escape(item.name || '')}"></div>
+            <div><label class="text-sm text-gray-600 mb-1 block">תיאור</label><textarea id="menu-desc" class="input-field" rows="2">${Utils.escape(item.description || '')}</textarea></div>
+            <div class="grid grid-cols-2 gap-3">
+              <div><label class="text-sm text-gray-600 mb-1 block">מחיר (₪)</label><input type="number" id="menu-price" class="input-field" value="${item.price || ''}" step="0.01"></div>
+              <div><label class="text-sm text-gray-600 mb-1 block">קטגוריה</label><input type="text" id="menu-category" class="input-field" value="${Utils.escape(item.category || '')}" placeholder="מנות ראשונות, עיקריות..."></div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div><label class="text-sm text-gray-600 mb-1 block">סדר תצוגה</label><input type="number" id="menu-sort" class="input-field" value="${item.sort_order || 0}" min="0"></div>
+              <div><label class="text-sm text-gray-600 mb-1 block">תמונה (URL)</label><input type="url" id="menu-image" class="input-field" value="${Utils.escape(item.image_url || '')}" placeholder="https://..."></div>
+            </div>
+            <label class="flex items-center gap-2"><input type="checkbox" id="menu-active" ${item.is_active !== false ? 'checked' : ''}><span class="text-sm text-gray-600">פעיל (מוצג ללקוחות)</span></label>
+            <p id="menu-form-msg" class="text-center text-sm hidden"></p>
+            <button type="submit" class="btn-primary w-full">${isEdit ? 'עדכן' : 'הוסף'} פריט</button>
+          </form>
         </div>
       </div>
     `;
   },
 
-  renderMenu() { return `<div class="card"><h3 class="font-semibold text-gray-700 mb-2">📋 תפריט</h3><p class="text-gray-400 text-sm">ניהול תפריט — בקרוב</p></div>`; },
-  renderGifts() { return `<div class="card"><h3 class="font-semibold text-gray-700 mb-2">🎁 מתנות</h3><p class="text-gray-400 text-sm">ניהול מתנות — בקרוב</p></div>`; },
-  renderReports() { return `<div class="card"><h3 class="font-semibold text-gray-700 mb-2">📈 דוחות</h3><p class="text-gray-400 text-sm">דוחות — בקרוב</p></div>`; },
-  renderAI() { return `<div class="card"><h3 class="font-semibold text-gray-700 mb-2">🤖 עוזר AI</h3><p class="text-gray-400 text-sm">עוזר AI — בקרוב</p></div>`; },
-  renderSetupWizard() { return `<div class="card text-center py-8"><p class="text-gray-400">הגדרות ראשוניות — בקרוב</p></div>`; },
+  // --- GIFTS MANAGEMENT ---
+  renderGifts() {
+    if (this.state.editingGift !== null) return this.renderGiftForm();
+    
+    const gifts = this.state.gifts;
+    return `
+      <div class="space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-semibold text-gray-800">🎁 ניהול מתנות (${gifts.length})</h2>
+          <button id="add-gift-btn" class="btn-primary text-sm">+ הוסף מתנה</button>
+        </div>
+        ${gifts.length === 0 ? Utils.emptyState('אין מתנות', '🎁') : ''}
+        <div class="space-y-2">
+          ${gifts.map(gift => `
+            <div class="card flex items-center gap-3">
+              <div class="text-3xl">${gift.icon || '🎁'}</div>
+              <div class="flex-1">
+                <div class="font-medium text-gray-800">${Utils.escape(gift.title)}</div>
+                <div class="text-xs text-gray-400">${Utils.escape(gift.description || '')}</div>
+              </div>
+              <span class="text-xs px-2 py-1 rounded ${gift.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}">${gift.is_active ? 'פעיל' : 'מוסתר'}</span>
+              <button data-edit-gift="${gift.id}" class="text-blue-500 text-sm px-2">✏️</button>
+              <button data-delete-gift="${gift.id}" class="text-red-500 text-sm px-2">🗑️</button>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  },
 
+  renderGiftForm() {
+    const gift = this.state.editingGift || {};
+    const isEdit = !!gift.id;
+    
+    return `
+      <div class="space-y-4">
+        <button id="back-to-gifts" class="text-sm text-gray-500 hover:text-gray-700">← חזרה למתנות</button>
+        <div class="card max-w-lg mx-auto">
+          <h2 class="text-xl font-semibold text-gray-800 mb-4">${isEdit ? 'עריכת מתנה' : 'מתנה חדשה'}</h2>
+          <form id="gift-form" class="space-y-4">
+            <div class="grid grid-cols-4 gap-3">
+              <div class="col-span-1"><label class="text-sm text-gray-600 mb-1 block">אייקון</label><input type="text" id="gift-icon" class="input-field text-center text-2xl" value="${Utils.escape(gift.icon || '🎁')}" maxlength="4"></div>
+              <div class="col-span-3"><label class="text-sm text-gray-600 mb-1 block">כותרת *</label><input type="text" id="gift-title" class="input-field" required value="${Utils.escape(gift.title || '')}"></div>
+            </div>
+            <div><label class="text-sm text-gray-600 mb-1 block">תיאור</label><textarea id="gift-desc" class="input-field" rows="2">${Utils.escape(gift.description || '')}</textarea></div>
+            <label class="flex items-center gap-2"><input type="checkbox" id="gift-active" ${gift.is_active !== false ? 'checked' : ''}><span class="text-sm text-gray-600">פעיל</span></label>
+            <p id="gift-form-msg" class="text-center text-sm hidden"></p>
+            <button type="submit" class="btn-primary w-full">${isEdit ? 'עדכן' : 'הוסף'} מתנה</button>
+          </form>
+        </div>
+      </div>
+    `;
+  },
+
+  // --- REPORTS ---
+  renderReports() {
+    const s = this.state.stats;
+    return `
+      <div class="space-y-4">
+        <h2 class="text-lg font-semibold text-gray-800">📈 דוחות</h2>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div class="card text-center"><div class="text-2xl font-bold text-gold">${s.totalToday || 0}</div><div class="text-xs text-gray-500 mt-1">בקשות היום</div></div>
+          <div class="card text-center"><div class="text-2xl font-bold text-green-500">${s.completedToday || 0}</div><div class="text-xs text-gray-500 mt-1">הושלמו</div></div>
+          <div class="card text-center"><div class="text-2xl font-bold text-blue-500">${s.avgResponseTime || 0}s</div><div class="text-xs text-gray-500 mt-1">זמן תגובה ממוצע</div></div>
+        </div>
+        <div class="card">
+          <h3 class="font-semibold text-gray-700 mb-2">פילוח לפי סוג בקשה</h3>
+          <p class="text-gray-400 text-sm">דוחות מפורטים יהיו זמינים בקרוב</p>
+        </div>
+      </div>
+    `;
+  },
+
+  renderSetupWizard() {
+    return `<div class="card text-center py-8"><p class="text-gray-400">הגדרות ראשוניות — עבור להגדרות כדי להגדיר את המסעדה</p></div>`;
+  },
+
+  // --- EVENTS ---
   attachEvents() {
-    // Logout
     const logout = document.getElementById('admin-logout');
-    if (logout) logout.addEventListener('click', () => {
-      Auth.clearAll();
-      this.state.admin = null;
-      this.state.tab = 'dashboard';
-      this.renderLogin();
-    });
+    if (logout) logout.addEventListener('click', () => { Auth.clearAll(); this.state.admin = null; this.state.tab = 'dashboard'; this.renderLogin(); });
     
-    // Tab switching
     document.querySelectorAll('[data-tab]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        this.state.tab = btn.dataset.tab;
-        this.render();
-      });
+      btn.addEventListener('click', () => { this.state.tab = btn.dataset.tab; this.state.editingMenuItem = null; this.state.editingGift = null; this.render(); });
     });
     
-    // Add table button
     const addTableBtn = document.getElementById('add-table-btn');
     if (addTableBtn) addTableBtn.addEventListener('click', () => this.showAddTableForm());
     
-    // Save settings
+    // Settings
     const saveSettings = document.getElementById('save-settings');
-    if (saveSettings) saveSettings.addEventListener('click', async () => {
-      try {
-        if (this.state.settings?.id) {
-          await sbUpdate('restaurant_settings', { id: this.state.settings.id }, {
-            escalation_green_minutes: parseInt(document.getElementById('esc-green').value),
-            escalation_orange_minutes: parseInt(document.getElementById('esc-orange').value),
-            escalation_alert_minutes: parseInt(document.getElementById('esc-red').value),
-          });
-        }
-        Utils.toast('הגדרות נשמרו', 'success');
-        await this.loadSettings();
-      } catch (e) { Utils.toast('שגיאה בשמירה'); }
-    });
+    if (saveSettings) saveSettings.addEventListener('click', () => this.saveSettings());
+    
+    // Logo upload
+    const logoBtn = document.getElementById('logo-upload-btn');
+    if (logoBtn) logoBtn.addEventListener('click', () => document.getElementById('logo-upload').click());
+    const logoInput = document.getElementById('logo-upload');
+    if (logoInput) logoInput.addEventListener('change', (e) => this.handleLogoUpload(e));
+    const logoRemove = document.getElementById('logo-remove-btn');
+    if (logoRemove) logoRemove.addEventListener('click', () => this.removeLogo());
     
     // Theme selection
     document.querySelectorAll('[data-theme]').forEach(btn => {
-      btn.addEventListener('click', async () => {
+      btn.addEventListener('click', () => {
         const theme = btn.dataset.theme;
-        document.querySelectorAll('[data-theme]').forEach(b => b.className = b.className.replace('border-gold', 'border-gray-200'));
+        document.querySelectorAll('[data-theme]').forEach(b => { b.className = b.className.replace('border-gold', 'border-gray-200'); });
         btn.className = btn.className.replace('border-gray-200', 'border-gold');
+        // Update live preview
+        const preview = btn.closest('.card').querySelector('.theme-luxury, .theme-premium, .theme-classic');
+        if (preview) { preview.className = `mt-4 p-4 rounded-xl theme-${theme}`; preview.style.background = 'var(--bg)'; }
+        // Save theme immediately
         if (this.state.settings?.id) {
-          await sbUpdate('restaurant_settings', { id: this.state.settings.id }, { theme });
+          sbUpdate('restaurant_settings', { id: this.state.settings.id }, { theme }).then(() => {
+            this.state.settings.theme = theme;
+          });
         }
       });
     });
+    
+    // View mode radio
+    document.querySelectorAll('input[name="view-mode"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        document.querySelectorAll('input[name="view-mode"]').forEach(r => {
+          r.closest('label').className = r.closest('label').className.replace('border-gold bg-gold/5', 'border-gray-200');
+        });
+        radio.closest('label').className = radio.closest('label').className.replace('border-gray-200', 'border-gold bg-gold/5');
+      });
+    });
+    
+    // Menu management
+    const addMenuBtn = document.getElementById('add-menu-item-btn');
+    if (addMenuBtn) addMenuBtn.addEventListener('click', () => { this.state.editingMenuItem = {}; this.render(); });
+    const backToMenu = document.getElementById('back-to-menu');
+    if (backToMenu) backToMenu.addEventListener('click', () => { this.state.editingMenuItem = null; this.render(); });
+    const menuItemForm = document.getElementById('menu-item-form');
+    if (menuItemForm) menuItemForm.addEventListener('submit', (e) => this.saveMenuItem(e));
+    document.querySelectorAll('[data-edit-menu]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const item = this.state.menuItems.find(m => m.id === btn.dataset.editMenu);
+        if (item) { this.state.editingMenuItem = { ...item }; this.render(); }
+      });
+    });
+    document.querySelectorAll('[data-delete-menu]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('מחיקת פריט?')) return;
+        try { await sbDelete('menu_items', { id: btn.dataset.deleteMenu }); await this.loadMenuItems(); this.render(); } catch(e) {}
+      });
+    });
+    
+    // Gifts management
+    const addGiftBtn = document.getElementById('add-gift-btn');
+    if (addGiftBtn) addGiftBtn.addEventListener('click', () => { this.state.editingGift = {}; this.render(); });
+    const backToGifts = document.getElementById('back-to-gifts');
+    if (backToGifts) backToGifts.addEventListener('click', () => { this.state.editingGift = null; this.render(); });
+    const giftForm = document.getElementById('gift-form');
+    if (giftForm) giftForm.addEventListener('submit', (e) => this.saveGift(e));
+    document.querySelectorAll('[data-edit-gift]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const gift = this.state.gifts.find(g => g.id === btn.dataset.editGift);
+        if (gift) { this.state.editingGift = { ...gift }; this.render(); }
+      });
+    });
+    document.querySelectorAll('[data-delete-gift]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('מחיקת מתנה?')) return;
+        try { await sbDelete('gifts', { id: btn.dataset.deleteGift }); await this.loadGifts(); this.render(); } catch(e) {}
+      });
+    });
+  },
+
+  async saveSettings() {
+    const msg = document.getElementById('settings-msg');
+    try {
+      const viewMode = document.querySelector('input[name="view-mode"]:checked')?.value || 'full_menu';
+      const data = {
+        theme: this.state.settings?.theme || 'luxury',
+        customer_view_mode: viewMode,
+        escalation_green_minutes: parseInt(document.getElementById('esc-green')?.value || 2),
+        escalation_orange_minutes: parseInt(document.getElementById('esc-orange')?.value || 4),
+        escalation_alert_minutes: parseInt(document.getElementById('esc-red')?.value || 5),
+        operating_hours: {
+          open: document.getElementById('open-hour')?.value || '10:00',
+          close: document.getElementById('close-hour')?.value || '23:00',
+        },
+      };
+      
+      if (this.state.settings?.id) {
+        await sbUpdate('restaurant_settings', { id: this.state.settings.id }, data);
+        Object.assign(this.state.settings, data);
+      }
+      
+      msg.textContent = '✅ הגדרות נשמרו בהצלחה';
+      msg.className = 'text-center text-sm text-green-500';
+    } catch (e) {
+      msg.textContent = '❌ שגיאה: ' + e.message;
+      msg.className = 'text-center text-sm text-red-500';
+    }
+    msg.classList.remove('hidden');
+  },
+
+  async handleLogoUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 500 * 1024) { Utils.toast('התמונה גדולה מדי (מקסימום 500KB)'); return; }
+    
+    // Compress image
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    img.onload = async () => {
+      const maxDim = 300;
+      let { width, height } = img;
+      if (width > height && width > maxDim) { height = height * maxDim / width; width = maxDim; }
+      else if (height > maxDim) { width = width * maxDim / height; height = maxDim; }
+      canvas.width = width; canvas.height = height;
+      ctx.drawImage(img, 0, 0, width, height);
+      const dataUrl = canvas.toDataURL('image/png', 0.85);
+      
+      // Save to settings
+      try {
+        if (this.state.settings?.id) {
+          await sbUpdate('restaurant_settings', { id: this.state.settings.id }, { logo_url: dataUrl });
+          this.state.settings.logo_url = dataUrl;
+          Utils.toast('לוגו נשמר!', 'success');
+          this.render();
+        }
+      } catch (err) { Utils.toast('שגיאה בשמירת לוגו'); }
+    };
+    img.src = URL.createObjectURL(file);
+  },
+
+  async removeLogo() {
+    try {
+      if (this.state.settings?.id) {
+        await sbUpdate('restaurant_settings', { id: this.state.settings.id }, { logo_url: '' });
+        this.state.settings.logo_url = '';
+        Utils.toast('לוגו הוסר', 'success');
+        this.render();
+      }
+    } catch(e) { Utils.toast('שגיאה'); }
+  },
+
+  async saveMenuItem(e) {
+    e.preventDefault();
+    const msg = document.getElementById('menu-form-msg');
+    const item = this.state.editingMenuItem || {};
+    const data = {
+      restaurant_id: this.state.restaurantId,
+      name: document.getElementById('menu-name').value.trim(),
+      description: document.getElementById('menu-desc').value.trim(),
+      price: parseFloat(document.getElementById('menu-price').value) || 0,
+      category: document.getElementById('menu-category').value.trim() || 'כללי',
+      sort_order: parseInt(document.getElementById('menu-sort').value) || 0,
+      image_url: document.getElementById('menu-image').value.trim(),
+      is_active: document.getElementById('menu-active').checked,
+    };
+    
+    try {
+      if (item.id) {
+        await sbUpdate('menu_items', { id: item.id }, data);
+      } else {
+        await sbInsert('menu_items', data);
+      }
+      msg.textContent = '✅ נשמר!'; msg.className = 'text-center text-sm text-green-500';
+      await this.loadMenuItems();
+      setTimeout(() => { this.state.editingMenuItem = null; this.render(); }, 1000);
+    } catch (err) {
+      msg.textContent = '❌ ' + err.message; msg.className = 'text-center text-sm text-red-500';
+    }
+    msg.classList.remove('hidden');
+  },
+
+  async saveGift(e) {
+    e.preventDefault();
+    const msg = document.getElementById('gift-form-msg');
+    const gift = this.state.editingGift || {};
+    const data = {
+      restaurant_id: this.state.restaurantId,
+      title: document.getElementById('gift-title').value.trim(),
+      description: document.getElementById('gift-desc').value.trim(),
+      icon: document.getElementById('gift-icon').value.trim() || '🎁',
+      is_active: document.getElementById('gift-active').checked,
+    };
+    
+    try {
+      if (gift.id) {
+        await sbUpdate('gifts', { id: gift.id }, data);
+      } else {
+        await sbInsert('gifts', data);
+      }
+      msg.textContent = '✅ נשמר!'; msg.className = 'text-center text-sm text-green-500';
+      await this.loadGifts();
+      setTimeout(() => { this.state.editingGift = null; this.render(); }, 1000);
+    } catch (err) {
+      msg.textContent = '❌ ' + err.message; msg.className = 'text-center text-sm text-red-500';
+    }
+    msg.classList.remove('hidden');
   },
 };
