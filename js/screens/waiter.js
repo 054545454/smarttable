@@ -1,10 +1,11 @@
-// SmartTable — Waiter Screen (Task Queue with Real-time Escalation)
+// SmartTable — Waiter Screen (Task Queue with Real-time Escalation + Task Merging)
 const WaiterScreen = {
   state: {
     name: null,
     restaurantId: null,
     shiftId: null,
     tasks: [],
+    mergedTasks: [],
     settings: null,
     subscriptions: [],
     timer: null,
@@ -47,7 +48,6 @@ const WaiterScreen = {
       if (!name) return;
       
       try {
-        // Find active shift
         const shifts = await sbSelect('shifts', {
           restaurant_id: this.state.restaurantId,
           ended_at: null,
@@ -56,7 +56,6 @@ const WaiterScreen = {
         let shiftId = null;
         if (shifts && shifts.length > 0) {
           shiftId = shifts[0].id;
-          // Add waiter to shift
           await sbInsert('shift_waiters', {
             shift_id: shiftId,
             waiter_name: name,
@@ -74,7 +73,6 @@ const WaiterScreen = {
   },
 
   async start() {
-    // Load restaurant settings
     try {
       const settings = await sbSelect('restaurant_settings', { restaurant_id: this.state.restaurantId }, { single: true });
       this.state.settings = settings || {};
@@ -90,34 +88,65 @@ const WaiterScreen = {
     try {
       this.state.tasks = await sbSelect('tasks', {
         restaurant_id: this.state.restaurantId,
-        status: { in: ['open', 'in_progress'] },
+        status: 'open',
       }, { order: { column: 'created_at', ascending: true } });
-    } catch(e) { console.error(e); this.state.tasks = []; }
+      
+      // Merge tasks from the same table
+      this.state.mergedTasks = this.mergeTasks(this.state.tasks);
+    } catch(e) { console.error(e); this.state.tasks = []; this.state.mergedTasks = []; }
+  },
+
+  // Merge multiple open tasks from the same table into one card
+  mergeTasks(tasks) {
+    const tableMap = new Map();
+    
+    for (const task of tasks) {
+      const key = task.table_id || task.table_number;
+      if (tableMap.has(key)) {
+        const existing = tableMap.get(key);
+        existing.subTasks.push(task);
+        // Use the oldest task's created_at for urgency
+        if (new Date(task.created_at) < new Date(existing.earliestAt)) {
+          existing.earliestAt = task.created_at;
+        }
+      } else {
+        tableMap.set(key, {
+          table_id: task.table_id,
+          table_number: task.table_number,
+          earliestAt: task.created_at,
+          subTasks: [task],
+          isClaimed: task.status === 'in_progress',
+          assignedWaiter: task.assigned_waiter_name,
+        });
+      }
+    }
+    
+    // Sort by earliest time (oldest first = most urgent)
+    return Array.from(tableMap.values()).sort((a, b) => new Date(a.earliestAt) - new Date(b.earliestAt));
   },
 
   render() {
-    const { name, tasks, settings } = this.state;
+    const { name, mergedTasks, settings } = this.state;
     
     document.getElementById('app').innerHTML = `
       <div class="min-h-screen bg-gray-50 fullscreen-mode">
-        <!-- Header -->
         <div class="bg-gray-900 text-white px-4 py-3 sticky top-0 z-10 shadow-lg">
           <div class="flex items-center justify-between max-w-2xl mx-auto">
             <div>
               <h1 class="text-lg font-semibold">🤵 ${Utils.escape(name)}</h1>
-              <p class="text-xs text-gray-400">${t('taskQueue')} · ${tasks.length} ${tasks.length === 1 ? 'משימה' : 'משימות'}</p>
+              <p class="text-xs text-gray-400">${t('taskQueue')} · ${mergedTasks.length} ${mergedTasks.length === 1 ? 'משימה' : 'משימות'}</p>
             </div>
-            <button id="waiter-logout" class="text-gray-400 hover:text-white text-sm px-3 py-1 rounded-lg">
-              ${t('logout')}
-            </button>
+            <div class="flex items-center gap-2">
+              <button id="waiter-fullscreen" class="text-gray-400 hover:text-white text-sm px-2">⤢</button>
+              <button id="waiter-logout" class="text-gray-400 hover:text-white text-sm px-3 py-1 rounded-lg">${t('logout')}</button>
+            </div>
           </div>
         </div>
 
-        <!-- Task list -->
         <div class="max-w-2xl mx-auto p-4 space-y-3" id="task-list">
-          ${tasks.length === 0 
+          ${mergedTasks.length === 0 
             ? Utils.emptyState(t('noTasks'), '✅')
-            : tasks.map(task => this.renderTask(task, settings)).join('')
+            : mergedTasks.map(merged => this.renderMergedTask(merged, settings)).join('')
           }
         </div>
       </div>
@@ -126,35 +155,44 @@ const WaiterScreen = {
     this.attachEvents();
   },
 
-  renderTask(task, settings) {
-    const urgency = Utils.getUrgency(task.created_at, settings);
-    const urgencyLabel = urgency === 'red' ? t('urgent') : '';
-    const elapsed = Math.floor(Utils.elapsedSeconds(task.created_at));
-    const typeInfo = CONFIG.taskTypes[task.type] || { icon: '📋', label: task.type };
-    const isClaimed = task.status === 'in_progress';
+  renderMergedTask(merged, settings) {
+    const urgency = Utils.getUrgency(merged.earliestAt, settings);
+    const elapsed = Math.floor(Utils.elapsedSeconds(merged.earliestAt));
+    const subTasks = merged.subTasks;
+    const isClaimed = merged.isClaimed;
+    
+    // Show all task types as icons
+    const taskIcons = subTasks.map(st => CONFIG.taskTypes[st.type]?.icon || '📋').join(' ');
+    const taskLabels = [...new Set(subTasks.map(st => CONFIG.taskTypes[st.type]?.label || st.type))].join(' + ');
+    
+    // If multiple tasks, show count badge
+    const multiBadge = subTasks.length > 1 
+      ? `<span class="px-2 py-0.5 bg-white/30 rounded-full text-xs font-bold">${subTasks.length}</span>` 
+      : '';
     
     return `
-      <div class="rounded-xl overflow-hidden shadow-md transition-all" data-task-id="${task.id}">
+      <div class="rounded-xl overflow-hidden shadow-md transition-all" data-merged-key="${merged.table_id || merged.table_number}">
         <div class="task-${urgency} px-4 py-3 flex items-center justify-between text-white">
-          <div class="flex items-center gap-3">
-            <span class="text-2xl">${typeInfo.icon}</span>
-            <div>
-              <div class="font-semibold">${typeInfo.label} · ${t('tableNumber')} ${task.table_number}</div>
+          <div class="flex items-center gap-3 flex-1">
+            <span class="text-2xl">${taskIcons}</span>
+            <div class="flex-1">
+              <div class="font-semibold flex items-center gap-2">
+                ${t('tableNumber')} ${merged.table_number} ${multiBadge}
+              </div>
               <div class="text-xs opacity-90">
-                ${isClaimed ? `נלקח ע"י ${task.assigned_waiter_name || ''}` : `${elapsed} ${t('seconds')}`}
-                ${task.special_note ? ` · ${Utils.escape(task.special_note)}` : ''}
+                ${taskLabels}
+              </div>
+              <div class="text-xs opacity-75 mt-0.5">
+                ${isClaimed ? `נלקח ע"י ${merged.assignedWaiter || ''}` : `⏱ ${Utils.formatDuration(elapsed)}`}
+                ${subTasks[0]?.special_note ? ` · 📝 ${Utils.escape(subTasks[0].special_note)}` : ''}
               </div>
             </div>
           </div>
           <div class="flex items-center gap-2">
-            ${urgency === 'red' ? `<span class="px-2 py-1 bg-white/20 rounded text-xs font-bold animate-pulse-soft">⚠️ ${urgencyLabel}</span>` : ''}
+            ${urgency === 'red' ? `<span class="px-2 py-1 bg-white/20 rounded text-xs font-bold animate-pulse-soft">⚠️ ${t('urgent')}</span>` : ''}
             ${isClaimed 
-              ? `<button data-complete="${task.id}" class="px-4 py-2 bg-white text-gray-800 rounded-lg font-semibold text-sm active:scale-95">
-                  ✓ ${t('completeTask')}
-                </button>`
-              : `<button data-claim="${task.id}" class="px-4 py-2 bg-white text-gray-800 rounded-lg font-semibold text-sm active:scale-95">
-                  ${t('claimTask')}
-                </button>`
+              ? `<button data-complete-all="${merged.table_id || merged.table_number}" class="px-4 py-2 bg-white text-gray-800 rounded-lg font-semibold text-sm active:scale-95">✓ ${t('completeTask')}</button>`
+              : `<button data-claim-all="${merged.table_id || merged.table_number}" class="px-4 py-2 bg-white text-gray-800 rounded-lg font-semibold text-sm active:scale-95">${t('claimTask')}</button>`
             }
           </div>
         </div>
@@ -171,47 +209,59 @@ const WaiterScreen = {
       window.location.hash = '';
     });
     
-    document.querySelectorAll('[data-claim]').forEach(btn => {
-      btn.addEventListener('click', () => this.claimTask(btn.dataset.claim));
+    const fsBtn = document.getElementById('waiter-fullscreen');
+    if (fsBtn) fsBtn.addEventListener('click', () => Utils.requestFullscreen());
+    
+    document.querySelectorAll('[data-claim-all]').forEach(btn => {
+      btn.addEventListener('click', () => this.claimAllTasksForTable(btn.dataset.claimAll));
     });
     
-    document.querySelectorAll('[data-complete]').forEach(btn => {
-      btn.addEventListener('click', () => this.completeTask(btn.dataset.complete));
+    document.querySelectorAll('[data-complete-all]').forEach(btn => {
+      btn.addEventListener('click', () => this.completeAllTasksForTable(btn.dataset.completeAll));
     });
   },
 
-  async claimTask(taskId) {
-    try {
-      const responseSeconds = Math.floor(Utils.elapsedSeconds(
-        this.state.tasks.find(t => t.id === taskId)?.created_at
-      ));
-      
-      await sbUpdate('tasks', { id: taskId }, {
-        status: 'in_progress',
-        assigned_waiter_name: this.state.name,
-        claimed_at: new Date().toISOString(),
-        response_seconds: responseSeconds,
-      });
-      
-      Utils.toast(t('taskClaimed'));
-      Utils.vibrate(50);
-      await this.loadTasks();
-      this.render();
-    } catch(e) { Utils.toast('שגיאה'); console.error(e); }
+  async claimAllTasksForTable(tableKey) {
+    const tasks = this.state.tasks.filter(t => 
+      (t.table_id || t.table_number) == tableKey && t.status === 'open'
+    );
+    
+    for (const task of tasks) {
+      const responseSeconds = Math.floor(Utils.elapsedSeconds(task.created_at));
+      try {
+        await sbUpdate('tasks', { id: task.id }, {
+          status: 'in_progress',
+          assigned_waiter_name: this.state.name,
+          claimed_at: new Date().toISOString(),
+          response_seconds: responseSeconds,
+        });
+      } catch(e) { console.error(e); }
+    }
+    
+    Utils.toast(t('taskClaimed'));
+    Utils.vibrate(50);
+    await this.loadTasks();
+    this.render();
   },
 
-  async completeTask(taskId) {
-    try {
-      await sbUpdate('tasks', { id: taskId }, {
-        status: 'done',
-        completed_at: new Date().toISOString(),
-      });
-      
-      Utils.toast(t('taskCompleted'));
-      Utils.vibrate([100, 50, 100]);
-      await this.loadTasks();
-      this.render();
-    } catch(e) { Utils.toast('שגיאה'); console.error(e); }
+  async completeAllTasksForTable(tableKey) {
+    const tasks = this.state.tasks.filter(t => 
+      (t.table_id || t.table_number) == tableKey && t.status === 'in_progress'
+    );
+    
+    for (const task of tasks) {
+      try {
+        await sbUpdate('tasks', { id: task.id }, {
+          status: 'done',
+          completed_at: new Date().toISOString(),
+        });
+      } catch(e) { console.error(e); }
+    }
+    
+    Utils.toast(t('taskCompleted'));
+    Utils.vibrate([100, 50, 100]);
+    await this.loadTasks();
+    this.render();
   },
 
   setupRealtime() {
@@ -228,11 +278,10 @@ const WaiterScreen = {
   startTimer() {
     if (this.state.timer) clearInterval(this.state.timer);
     this.state.timer = setInterval(() => {
-      const list = document.getElementById('task-list');
-      if (!list || this.state.tasks.length === 0) return;
-      
+      if (this.state.mergedTasks.length === 0) return;
       // Re-render to update elapsed times and urgency colors
-      this.render();
+      const list = document.getElementById('task-list');
+      if (list) this.render();
     }, 5000);
   },
 };

@@ -15,6 +15,7 @@ const AdminScreen = {
     gifts: [],
     editingMenuItem: null,
     editingGift: null,
+    reports: null,
   },
 
   init(restaurantId) {
@@ -624,20 +625,103 @@ const AdminScreen = {
   },
 
   // --- REPORTS ---
+  async loadReports() {
+    try {
+      this.state.reports = await apiCall({
+        action: 'getReports',
+        filters: { restaurant_id: this.state.restaurantId },
+      });
+    } catch(e) { console.error(e); this.state.reports = null; }
+    this.render();
+  },
+
   renderReports() {
-    const s = this.state.stats;
+    const r = this.state.reports;
+    if (!r) {
+      // Trigger load
+      if (!this.state._reportsLoading) {
+        this.state._reportsLoading = true;
+        this.loadReports();
+      }
+      return '<div class="space-y-4"><h2 class="text-lg font-semibold text-gray-800">📈 דוחות</h2>' + Utils.spinner() + '</div>';
+    }
+    this.state._reportsLoading = false;
+    
+    // Task type labels
+    const typeLabels = Object.entries(CONFIG.taskTypes).map(([k, v]) => ({ key: k, icon: v.icon, label: v.label }));
+    
+    // Build by-type breakdown
+    const byTypeHTML = typeLabels.map(({ key, icon, label }) => {
+      const data = r.byType?.[key];
+      if (!data || data.count === 0) return '';
+      const pct = r.total > 0 ? Math.round((data.count / r.total) * 100) : 0;
+      return `
+        <div class="py-2 border-b last:border-0">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-sm">${icon} ${label}</span>
+            <span class="text-sm font-bold text-gray-700">${data.count} (${pct}%)</span>
+          </div>
+          <div class="w-full bg-gray-100 rounded-full h-2">
+            <div class="bg-gold rounded-full h-2 transition-all" style="width:${pct}%"></div>
+          </div>
+          ${data.avgResponse > 0 ? `<div class="text-xs text-gray-400 mt-1">⏱ ממוצע תגובה: ${data.avgResponse}s · ${data.completed} הושלמו</div>` : ''}
+        </div>
+      `;
+    }).join('');
+
+    // Build by-hour mini chart (bars)
+    const maxHour = Math.max(...r.byHour, 1);
+    const hourBars = r.byHour.map((count, hour) => {
+      if (count === 0) return '';
+      const height = Math.round((count / maxHour) * 100);
+      return `<div class="flex flex-col items-center flex-1" title="${hour}:00 - ${count} בקשות"><div class="text-xs text-gray-400 mb-0.5">${count}</div><div class="w-full bg-gold rounded-t" style="height:${height}px;min-height:2px"></div><div class="text-xs text-gray-400 mt-0.5">${hour}</div></div>`;
+    }).join('');
+    
     return `
       <div class="space-y-4">
-        <h2 class="text-lg font-semibold text-gray-800">📈 דוחות</h2>
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-          <div class="card text-center"><div class="text-2xl font-bold text-gold">${s.totalToday || 0}</div><div class="text-xs text-gray-500 mt-1">בקשות היום</div></div>
-          <div class="card text-center"><div class="text-2xl font-bold text-green-500">${s.completedToday || 0}</div><div class="text-xs text-gray-500 mt-1">הושלמו</div></div>
-          <div class="card text-center"><div class="text-2xl font-bold text-blue-500">${s.avgResponseTime || 0}s</div><div class="text-xs text-gray-500 mt-1">זמן תגובה ממוצע</div></div>
+        <h2 class="text-lg font-semibold text-gray-800">📈 דוחות וניתוח</h2>
+        
+        <!-- Overview Stats -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div class="card text-center"><div class="text-2xl font-bold text-gold">${r.total}</div><div class="text-xs text-gray-500 mt-1">סה"כ בקשות</div></div>
+          <div class="card text-center"><div class="text-2xl font-bold text-green-500">${r.completed}</div><div class="text-xs text-gray-500 mt-1">הושלמו</div></div>
+          <div class="card text-center"><div class="text-2xl font-bold text-blue-500">${r.avgResponseTime}s</div><div class="text-xs text-gray-500 mt-1">ממוצע תגובה</div></div>
+          <div class="card text-center"><div class="text-2xl font-bold text-purple-500">${r.completionRate}%</div><div class="text-xs text-gray-500 mt-1">אחוז השלמה</div></div>
         </div>
+
+        <!-- Today -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="card text-center"><div class="text-xl font-bold text-orange-500">${r.todayCount}</div><div class="text-xs text-gray-500 mt-1">בקשות היום</div></div>
+          <div class="card text-center"><div class="text-xl font-bold text-green-500">${r.todayCompleted}</div><div class="text-xs text-gray-500 mt-1">הושלמו היום</div></div>
+        </div>
+
+        <!-- Response time breakdown -->
         <div class="card">
-          <h3 class="font-semibold text-gray-700 mb-2">פילוח לפי סוג בקשה</h3>
-          <p class="text-gray-400 text-sm">דוחות מפורטים יהיו זמינים בקרוב</p>
+          <h3 class="font-semibold text-gray-700 mb-3">⏱ זמני תגובה</h3>
+          <div class="grid grid-cols-3 gap-3 text-center">
+            <div><div class="text-lg font-bold text-green-500">${r.minResponseTime}s</div><div class="text-xs text-gray-400">מינימום</div></div>
+            <div><div class="text-lg font-bold text-blue-500">${r.avgResponseTime}s</div><div class="text-xs text-gray-400">ממוצע</div></div>
+            <div><div class="text-lg font-bold text-red-500">${r.maxResponseTime}s</div><div class="text-xs text-gray-400">מקסימום</div></div>
+          </div>
         </div>
+
+        <!-- By Type -->
+        ${byTypeHTML ? `
+        <div class="card">
+          <h3 class="font-semibold text-gray-700 mb-3">📊 פילוח לפי סוג בקשה</h3>
+          ${byTypeHTML}
+        </div>` : ''}
+
+        <!-- By Hour -->
+        ${hourBars ? `
+        <div class="card">
+          <h3 class="font-semibold text-gray-700 mb-3">🕐 פילוח לפי שעה</h3>
+          <div class="flex items-end gap-1 h-32">
+            ${hourBars}
+          </div>
+        </div>` : ''}
+        
+        ${r.total === 0 ? Utils.emptyState('אין נתונים עדיין', '📊') : ''}
       </div>
     `;
   },
@@ -652,7 +736,7 @@ const AdminScreen = {
     if (logout) logout.addEventListener('click', () => { Auth.clearAll(); this.state.admin = null; this.state.tab = 'dashboard'; this.renderLogin(); });
     
     document.querySelectorAll('[data-tab]').forEach(btn => {
-      btn.addEventListener('click', () => { this.state.tab = btn.dataset.tab; this.state.editingMenuItem = null; this.state.editingGift = null; this.render(); });
+      btn.addEventListener('click', () => { this.state.tab = btn.dataset.tab; this.state.editingMenuItem = null; this.state.editingGift = null; this.state.reports = null; this.state._reportsLoading = false; this.render(); });
     });
     
     const addTableBtn = document.getElementById('add-table-btn');
