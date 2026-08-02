@@ -514,7 +514,10 @@ const AdminScreen = {
       <div class="space-y-4">
         <div class="flex items-center justify-between">
           <h2 class="text-lg font-semibold text-gray-800">📋 ניהול תפריט (${items.length})</h2>
-          <button id="add-menu-item-btn" class="btn-primary text-sm">+ הוסף פריט</button>
+          <div class="flex gap-2">
+            <button id="upload-menu-file-btn" class="btn-secondary text-sm">📤 העלה קובץ</button>
+            <button id="add-menu-item-btn" class="btn-primary text-sm">+ הוסף פריט</button>
+          </div>
         </div>
         ${items.length === 0 ? Utils.emptyState('אין פריטים בתפריט', '📋') : ''}
         ${Object.entries(categories).map(([cat, catItems]) => `
@@ -550,6 +553,23 @@ const AdminScreen = {
         <button id="back-to-menu" class="text-sm text-gray-500 hover:text-gray-700">← חזרה לתפריט</button>
         <div class="card max-w-lg mx-auto">
           <h2 class="text-xl font-semibold text-gray-800 mb-4">${isEdit ? 'עריכת פריט' : 'פריט חדש'}</h2>
+          
+          <!-- File Upload Section -->
+          ${!isEdit ? `
+          <div class="mb-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
+            <p class="text-sm text-blue-700 mb-2 font-medium">📤 העלה תפריט מקובץ</p>
+            <p class="text-xs text-blue-500 mb-3">בחר קובץ PDF או Word מהטלפון, והמערכת תקרא את התוכן ותסדר אותו באופן אוטומטי</p>
+            <input type="file" id="menu-file-upload" accept=".pdf,.doc,.docx" class="hidden">
+            <button type="button" id="menu-file-btn" class="btn-secondary text-sm w-full">📄 בחר קובץ PDF/Word</button>
+            <div id="file-upload-progress" class="mt-2 hidden">
+              <div class="flex items-center gap-2 text-sm text-blue-600">
+                <div class="spinner" style="width:16px;height:16px;border-width:2px"></div>
+                <span id="file-upload-status">קורא קובץ...</span>
+              </div>
+            </div>
+          </div>
+          ` : ''}
+          
           <form id="menu-item-form" class="space-y-4">
             <div><label class="text-sm text-gray-600 mb-1 block">שם מנה *</label><input type="text" id="menu-name" class="input-field" required value="${Utils.escape(item.name || '')}"></div>
             <div><label class="text-sm text-gray-600 mb-1 block">תיאור</label><textarea id="menu-desc" class="input-field" rows="2">${Utils.escape(item.description || '')}</textarea></div>
@@ -559,7 +579,14 @@ const AdminScreen = {
             </div>
             <div class="grid grid-cols-2 gap-3">
               <div><label class="text-sm text-gray-600 mb-1 block">סדר תצוגה</label><input type="number" id="menu-sort" class="input-field" value="${item.sort_order || 0}" min="0"></div>
-              <div><label class="text-sm text-gray-600 mb-1 block">תמונה (URL)</label><input type="url" id="menu-image" class="input-field" value="${Utils.escape(item.image_url || '')}" placeholder="https://..."></div>
+              <div>
+                <label class="text-sm text-gray-600 mb-1 block">תמונת מנה</label>
+                <div class="flex items-center gap-2">
+                  ${item.image_url ? `<img src="${item.image_url}" class="w-10 h-10 rounded object-cover">` : ''}
+                  <input type="file" id="menu-image-upload" accept="image/*" class="hidden">
+                  <button type="button" id="menu-image-btn" class="btn-secondary text-sm flex-shrink-0">📷 בחר</button>
+                </div>
+              </div>
             </div>
             <label class="flex items-center gap-2"><input type="checkbox" id="menu-active" ${item.is_active !== false ? 'checked' : ''}><span class="text-sm text-gray-600">פעיל (מוצג ללקוחות)</span></label>
             <p id="menu-form-msg" class="text-center text-sm hidden"></p>
@@ -612,9 +639,26 @@ const AdminScreen = {
           <form id="gift-form" class="space-y-4">
             <div class="grid grid-cols-4 gap-3">
               <div class="col-span-1"><label class="text-sm text-gray-600 mb-1 block">אייקון</label><input type="text" id="gift-icon" class="input-field text-center text-2xl" value="${Utils.escape(gift.icon || '🎁')}" maxlength="4"></div>
-              <div class="col-span-3"><label class="text-sm text-gray-600 mb-1 block">כותרת *</label><input type="text" id="gift-title" class="input-field" required value="${Utils.escape(gift.title || '')}"></div>
+              <div class="col-span-3"><label class="text-sm text-gray-600 mb-1 block">כותרת *</label><input type="text" id="gift-title" class="input-field" required value="${Utils.escape(gift.title || '')}" placeholder="קיבלת פחית קולה!"></div>
             </div>
-            <div><label class="text-sm text-gray-600 mb-1 block">תיאור</label><textarea id="gift-desc" class="input-field" rows="2">${Utils.escape(gift.description || '')}</textarea></div>
+            <div><label class="text-sm text-gray-600 mb-1 block">תיאור</label><textarea id="gift-desc" class="input-field" rows="2" placeholder="הלקוח קיבל פחית קולה עלינו 🎉">${Utils.escape(gift.description || '')}</textarea></div>
+            
+            <!-- Image Upload -->
+            <div>
+              <label class="text-sm text-gray-600 mb-2 block">תמונה (אופציונלי)</label>
+              <div class="flex items-center gap-3">
+                ${gift.image_url 
+                  ? `<img src="${gift.image_url}" class="w-20 h-20 rounded-lg object-cover border border-gray-200" id="gift-image-preview">`
+                  : '<div class="w-20 h-20 rounded-lg bg-gray-100 flex items-center justify-center text-3xl text-gray-300">📷</div>'}
+                <div class="flex-1">
+                  <input type="file" id="gift-image-upload" accept="image/*" class="hidden">
+                  <button type="button" id="gift-image-btn" class="btn-secondary text-sm">📷 בחר תמונה</button>
+                  ${gift.image_url ? '<button type="button" id="gift-image-remove" class="btn-secondary text-sm text-red-500 mr-2">הסר</button>' : ''}
+                  <p class="text-xs text-gray-400 mt-2">מתוך הגלריה, דרייב, או כל מאגר בטלפון</p>
+                </div>
+              </div>
+            </div>
+            
             <label class="flex items-center gap-2"><input type="checkbox" id="gift-active" ${gift.is_active !== false ? 'checked' : ''}><span class="text-sm text-gray-600">פעיל</span></label>
             <p id="gift-form-msg" class="text-center text-sm hidden"></p>
             <button type="submit" class="btn-primary w-full">${isEdit ? 'עדכן' : 'הוסף'} מתנה</button>
@@ -785,6 +829,19 @@ const AdminScreen = {
     // Menu management
     const addMenuBtn = document.getElementById('add-menu-item-btn');
     if (addMenuBtn) addMenuBtn.addEventListener('click', () => { this.state.editingMenuItem = {}; this.render(); });
+    
+    const uploadMenuFileBtn = document.getElementById('upload-menu-file-btn');
+    if (uploadMenuFileBtn) uploadMenuFileBtn.addEventListener('click', () => { this.state.editingMenuItem = {}; this.state._showFileUpload = true; this.render(); });
+    
+    const menuFileBtn = document.getElementById('menu-file-btn');
+    if (menuFileBtn) menuFileBtn.addEventListener('click', () => document.getElementById('menu-file-upload').click());
+    const menuFileInput = document.getElementById('menu-file-upload');
+    if (menuFileInput) menuFileInput.addEventListener('change', (e) => this.handleMenuFileUpload(e));
+    
+    const menuImgBtn = document.getElementById('menu-image-btn');
+    if (menuImgBtn) menuImgBtn.addEventListener('click', () => document.getElementById('menu-image-upload').click());
+    const menuImgInput = document.getElementById('menu-image-upload');
+    if (menuImgInput) menuImgInput.addEventListener('change', (e) => this.handleMenuImageUpload(e));
     const backToMenu = document.getElementById('back-to-menu');
     if (backToMenu) backToMenu.addEventListener('click', () => { this.state.editingMenuItem = null; this.render(); });
     const menuItemForm = document.getElementById('menu-item-form');
@@ -809,6 +866,14 @@ const AdminScreen = {
     if (backToGifts) backToGifts.addEventListener('click', () => { this.state.editingGift = null; this.render(); });
     const giftForm = document.getElementById('gift-form');
     if (giftForm) giftForm.addEventListener('submit', (e) => this.saveGift(e));
+    
+    // Gift image upload
+    const giftImgBtn = document.getElementById('gift-image-btn');
+    if (giftImgBtn) giftImgBtn.addEventListener('click', () => document.getElementById('gift-image-upload').click());
+    const giftImgInput = document.getElementById('gift-image-upload');
+    if (giftImgInput) giftImgInput.addEventListener('change', (e) => this.handleGiftImageUpload(e));
+    const giftImgRemove = document.getElementById('gift-image-remove');
+    if (giftImgRemove) giftImgRemove.addEventListener('click', () => { this.state._giftImage = ''; this.state.editingGift.image_url = ''; this.render(); });
     document.querySelectorAll('[data-edit-gift]').forEach(btn => {
       btn.addEventListener('click', () => {
         const gift = this.state.gifts.find(g => g.id === btn.dataset.editGift);
@@ -895,6 +960,193 @@ const AdminScreen = {
     } catch(e) { Utils.toast('שגיאה'); }
   },
 
+  async handleMenuFileUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const progressEl = document.getElementById('file-upload-progress');
+    const statusEl = document.getElementById('file-upload-status');
+    if (progressEl) progressEl.classList.remove('hidden');
+    if (statusEl) statusEl.textContent = 'קורא קובץ...';
+    
+    try {
+      const ext = file.name.split('.').pop().toLowerCase();
+      let text = '';
+      
+      if (ext === 'pdf') {
+        // Use pdf.js to read PDF
+        if (!window.pdfjsLib) {
+          // Load pdf.js dynamically
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+          });
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+        
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        if (statusEl) statusEl.textContent = 'מנתח תוכן...';
+        
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          const pageText = content.items.map(item => item.str).join(' ');
+          text += pageText + '\n';
+        }
+      } else if (ext === 'doc' || ext === 'docx') {
+        // Use mammoth.js to read Word
+        if (!window.mammoth) {
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js';
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+          });
+        }
+        
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await window.mammoth.extractRawText({ arrayBuffer });
+        text = result.value;
+      } else {
+        Utils.toast('פורמט לא נתמך. אנא השתמש ב-PDF או Word.');
+        if (progressEl) progressEl.classList.add('hidden');
+        return;
+      }
+      
+      if (statusEl) statusEl.textContent = 'מסדר פריטים...';
+      
+      // Parse text into menu items
+      const items = this.parseMenuText(text);
+      
+      if (items.length === 0) {
+        Utils.toast('לא נמצאו פריטים בקובץ');
+        if (progressEl) progressEl.classList.add('hidden');
+        return;
+      }
+      
+      // If multiple items found, bulk import them
+      if (items.length > 1) {
+        if (!confirm('נמצאו ' + items.length + ' פריטים בקובץ. להוסיף את כול�ם?')) {
+          if (progressEl) progressEl.classList.add('hidden');
+          return;
+        }
+        let added = 0;
+        for (const item of items) {
+          try {
+            await sbInsert('menu_items', { ...item, restaurant_id: this.state.restaurantId, is_active: true });
+            added++;
+          } catch(e) { console.error(e); }
+        }
+        Utils.toast('✅ ' + added + ' פריטים נוספו בהצלחה!');
+        await this.loadMenuItems();
+        this.state.editingMenuItem = null;
+        if (progressEl) progressEl.classList.add('hidden');
+        this.render();
+        return;
+      }
+      
+      // Single item — fill the form
+      const item = items[0];
+      const nameEl = document.getElementById('menu-name');
+      const descEl = document.getElementById('menu-desc');
+      const priceEl = document.getElementById('menu-price');
+      const catEl = document.getElementById('menu-category');
+      if (nameEl) nameEl.value = item.name || '';
+      if (descEl) descEl.value = item.description || '';
+      if (priceEl) priceEl.value = item.price || '';
+      if (catEl) catEl.value = item.category || '';
+      if (statusEl) statusEl.textContent = '✅ נקרא בהצלחה! בדוק את הפרטים';
+      Utils.toast('קובץ נקרא בהצלחה ✓');
+      setTimeout(() => { if (progressEl) progressEl.classList.add('hidden'); }, 2000);
+    } catch (err) {
+      console.error('File read error:', err);
+      Utils.toast('שגיאה בקריאת הקובץ: ' + err.message);
+      if (progressEl) progressEl.classList.add('hidden');
+    }
+  },
+
+  // Parse text from PDF/Word into menu items
+  parseMenuText(text) {
+    const lines = text.split(/\n+/).map(l => l.trim()).filter(l => l.length > 0);
+    const items = [];
+    let currentCategory = 'כללי';
+    
+    for (const line of lines) {
+      // Skip very short lines or headers
+      if (line.length < 2) continue;
+      
+      // Try to extract price (number at end, possibly with ₪ or "שח")
+      const priceMatch = line.match(/(\d+(?:\.\d+)?)\s*(₪|ש\"ח|shekel|nis)?\s*$/i);
+      const price = priceMatch ? parseFloat(priceMatch[1]) : null;
+      
+      // Try to extract name and description
+      let name = line;
+      let description = '';
+      
+      // If there's a dash or bullet separating name and description
+      const dashMatch = line.match(/^(.+?)\s*[\-–—]\s*(.+)$/);
+      if (dashMatch) {
+        name = dashMatch[1].trim();
+        description = dashMatch[2].trim();
+        // Check if description ends with price
+        if (price) {
+          description = description.replace(/(\d+(?:\.\d+)?)\s*(₪|ש\"ח|shekel|nis)?\s*$/i, '').trim();
+        }
+      } else if (price) {
+        name = line.replace(/(\d+(?:\.\d+)?)\s*(₪|ש\"ח|shekel|nis)?\s*$/i, '').trim();
+      }
+      
+      // Clean up name
+      name = name.replace(/^\d+[.)\s]+/, '').replace(/^[•·▪◆●]\s*/, '').trim();
+      if (!name || name.length < 2) continue;
+      
+      // If the line looks like a category header (no price, short, no description separator)
+      if (!price && !dashMatch && line.length < 30 && !line.includes('.')) {
+        currentCategory = name;
+        continue;
+      }
+      
+      items.push({
+        name,
+        description: description || '',
+        price: price || 0,
+        category: currentCategory,
+        sort_order: items.length + 1,
+      });
+    }
+    
+    return items;
+  },
+
+  async handleMenuImageUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { Utils.toast('התמונה גדולה מדי (מקסימום 2MB)'); return; }
+    
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    img.onload = () => {
+      const maxDim = 400;
+      let { width, height } = img;
+      if (width > height && width > maxDim) { height = height * maxDim / width; width = maxDim; }
+      else if (height > maxDim) { width = width * maxDim / height; height = maxDim; }
+      canvas.width = width; canvas.height = height;
+      ctx.drawImage(img, 0, 0, width, height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      this.state._menuImage = dataUrl;
+      if (this.state.editingMenuItem) this.state.editingMenuItem.image_url = dataUrl;
+      Utils.toast('תמונה נבחרה ✓');
+      this.render();
+    };
+    img.src = URL.createObjectURL(file);
+  },
+
   async saveMenuItem(e) {
     e.preventDefault();
     const msg = document.getElementById('menu-form-msg');
@@ -906,7 +1158,7 @@ const AdminScreen = {
       price: parseFloat(document.getElementById('menu-price').value) || 0,
       category: document.getElementById('menu-category').value.trim() || 'כללי',
       sort_order: parseInt(document.getElementById('menu-sort').value) || 0,
-      image_url: document.getElementById('menu-image').value.trim(),
+      image_url: this.state._menuImage || this.state.editingMenuItem?.image_url || '',
       is_active: document.getElementById('menu-active').checked,
     };
     
@@ -925,6 +1177,31 @@ const AdminScreen = {
     msg.classList.remove('hidden');
   },
 
+  async handleGiftImageUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { Utils.toast('התמונה גדולה מדי (מקסימום 2MB)'); return; }
+    
+    // Compress image like logo
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    img.onload = () => {
+      const maxDim = 400;
+      let { width, height } = img;
+      if (width > height && width > maxDim) { height = height * maxDim / width; width = maxDim; }
+      else if (height > maxDim) { width = width * maxDim / height; height = maxDim; }
+      canvas.width = width; canvas.height = height;
+      ctx.drawImage(img, 0, 0, width, height);
+      this.state._giftImage = canvas.toDataURL('image/jpeg', 0.85);
+      Utils.toast('תמונה נבחרה ✓');
+      // Update preview
+      const preview = document.getElementById('gift-image-preview');
+      if (preview) preview.src = this.state._giftImage;
+    };
+    img.src = URL.createObjectURL(file);
+  },
+
   async saveGift(e) {
     e.preventDefault();
     const msg = document.getElementById('gift-form-msg');
@@ -934,6 +1211,7 @@ const AdminScreen = {
       title: document.getElementById('gift-title').value.trim(),
       description: document.getElementById('gift-desc').value.trim(),
       icon: document.getElementById('gift-icon').value.trim() || '🎁',
+      image_url: this.state._giftImage || gift.image_url || '',
       is_active: document.getElementById('gift-active').checked,
     };
     

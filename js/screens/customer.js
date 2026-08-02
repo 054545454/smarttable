@@ -179,7 +179,10 @@ const CustomerScreen = {
       <div class="max-w-sm mx-auto">
         <div class="card text-center relative overflow-hidden" style="background:var(--card);border:1px solid var(--border)">
           <div id="scratch-prize" class="py-6">
-            <div class="text-4xl mb-2">${gift.icon || '🎁'}</div>
+            ${gift.image_url 
+              ? `<img src="${gift.image_url}" class="mx-auto h-32 w-32 object-cover rounded-xl mb-3">`
+              : `<div class="text-4xl mb-2">${gift.icon || '🎁'}</div>`
+            }
             <h3 class="font-playfair text-lg mb-1" style="color:var(--accent)">${Utils.escape(gift.title)}</h3>
             <p class="text-sm" style="color:var(--text-muted)">${Utils.escape(gift.description || '')}</p>
           </div>
