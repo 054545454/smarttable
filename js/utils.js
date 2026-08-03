@@ -19,17 +19,27 @@ const Utils = {
 
   // Time formatting
   formatTime(dateStr) {
-    const d = new Date(dateStr);
+    if (!dateStr) return '—';
+    const clean = typeof dateStr === 'string' ? dateStr.replace(/(\.\d{3})\d+/, '') : dateStr;
+    const d = new Date(clean);
+    if (isNaN(d.getTime())) return '—';
     return d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
   },
   
   formatDate(dateStr) {
-    const d = new Date(dateStr);
+    if (!dateStr) return '—';
+    // Truncate microseconds (Base44 returns 6 digits, JS supports 3)
+    const clean = typeof dateStr === 'string' ? dateStr.replace(/(\.\d{3})\d+/, '$1') : dateStr;
+    const d = new Date(clean);
+    if (isNaN(d.getTime())) return '—';
     return d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' });
   },
   
   formatDateHebrew(dateStr) {
-    const d = new Date(dateStr);
+    if (!dateStr) return '—';
+    const clean = typeof dateStr === 'string' ? dateStr.replace(/(\.\d{3})\d+/, '$1') : dateStr;
+    const d = new Date(clean);
+    if (isNaN(d.getTime())) return '—';
     return d.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' });
   },
   
