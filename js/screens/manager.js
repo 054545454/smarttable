@@ -3,7 +3,7 @@ const ManagerScreen = {
   state: {
     restaurantId: null, manager: null, shift: null, tables: [], waiters: [],
     tasks: [], allShiftTasks: [], settings: null, subscriptions: [], timer: null,
-    showAddTask: false, showHeatmap: false, showFeedback: false, heatmapData: null, waiterStats: null, feedback: [],
+    showAddTask: false, showHeatmap: false, showFeedback: false, showShiftDetails: false, heatmapData: null, waiterStats: null, feedback: [],
   },
 
   init(restaurantId) {
@@ -50,7 +50,7 @@ const ManagerScreen = {
 
   async start() {
     await this.loadSettings(); await this.loadShift(); await this.loadTables();
-    await this.loadWaiters(); await this.loadTasks(); await this.loadShiftStats();
+    await this.loadWaiters(); await this.loadTasks(); await this.loadShiftStats(); this.loadShiftOverview();
     this.render(); this.setupRealtime(); this.startTimer();
   },
 
@@ -108,13 +108,16 @@ const ManagerScreen = {
             </div>
 
             <!-- Action buttons -->
-            <div class="grid grid-cols-3 gap-2 animate-fade-in stagger-1">
+            <div class="grid grid-cols-4 gap-2 animate-fade-in stagger-1">
+              <button id="shift-details-btn" class="btn-secondary text-sm">📊 משמרת</button>
               <button id="heatmap-btn" class="btn-secondary text-sm">🔥 מפת חום</button>
               <button id="add-task-btn" class="btn-primary text-sm">➕ משימה</button>
               <button id="feedback-btn" class="btn-secondary text-sm">⭐ משוב</button>
             </div>
 
             ${this.state.showAddTask ? this.renderAddTask(tables) : ''}
+
+            ${this.state.showShiftDetails ? this.renderShiftDetails() : ''}
 
             <!-- Task Queue -->
             ${merged.length > 0 ? `
@@ -141,7 +144,10 @@ const ManagerScreen = {
                             </div>
                           </div>
                         </div>
-                        <button data-cancel="${m.table_id || m.table_number}" class="px-3 py-2 bg-white/20 rounded-lg text-sm spring-scale">✖ בטל</button>
+                        <div class="flex items-center gap-2">
+                          ${!m.isClaimed && waiters.length > 0 ? `<select data-assign="${m.table_id || m.table_number}" class="px-2 py-1 bg-white/20 rounded-lg text-xs text-white border-0 outline-none spring-scale" style="max-width:100px"><option value="">🤵 הקצה...</option>${waiters.map(w => `<option value="${Utils.escape(w.waiter_name)}" data-wid="${w.waiter_id || ''}">${Utils.escape(w.waiter_name)}</option>`).join('')}</select>` : ''}
+                          <button data-cancel="${m.table_id || m.table_number}" class="px-3 py-2 bg-white/20 rounded-lg text-sm spring-scale">✖ בטל</button>
+                        </div>
                       </div>`;
                   }).join('')}
                 </div>
@@ -184,12 +190,11 @@ const ManagerScreen = {
             </div>
           </div>
 
-          <!-- Waiters -->
+          <!-- Waiters with stats -->
           ${shift ? `
             <div class="card animate-fade-in">
               <h2 class="font-semibold mb-3" style="color:var(--text)">${t('waiters')} (${waiters.length})</h2>
-              ${waiters.length === 0 ? '<p class="text-sm" style="color:var(--text-muted)">אין מלצרים במשמרת.</p>'
-                : `<div class="space-y-2">${waiters.map(w => `<div class="flex items-center gap-2 py-1"><span class="w-2 h-2 rounded-full bg-green-500"></span><span class="text-sm" style="color:var(--text)">${Utils.escape(w.waiter_name)}</span><span class="text-xs mr-auto" style="color:var(--text-muted)">${Utils.formatTime(w.joined_at)}</span></div>`).join('')}</div>`}
+              ${waiters.length === 0 ? '<p class="text-sm" style="color:var(--text-muted)">אין מלצרים במשמרת.</p>' : `<div class="space-y-2">${waiters.map(w => { const ws = this.state.shiftOverview?.waiters?.find(s => s.name === w.waiter_name); return `<div class="flex items-center gap-2 py-2 border-b last:border-0" style="border-color:var(--border)"><span class="w-2 h-2 rounded-full bg-green-500"></span><div class="flex-1"><span class="text-sm font-medium" style="color:var(--text)">${Utils.escape(w.waiter_name)}</span><div class="text-xs" style="color:var(--text-muted)">${Utils.formatTime(w.joined_at)}${ws ? ` · ✅ ${ws.completed} הושלמו · 🤵 ${ws.active} פעילות${ws.responseTimes.length > 0 ? ` · ⏱ ${Math.round(ws.responseTimes.reduce((a,b)=>a+b,0)/ws.responseTimes.length)}s` : ''}` : ''}</div></div></div>`; }).join('')}</div>`}
             </div>` : ''}
         </div>
 
@@ -238,6 +243,43 @@ const ManagerScreen = {
       </div>`;
   },
 
+  renderShiftDetails() {
+    const ov = this.state.shiftOverview;
+    if (!ov) return '';
+    return `
+      <div class="card animate-spring-bounce">
+        <h3 class="font-semibold mb-3" style="color:var(--text)">📊 נתוני משמרת</h3>
+        <div class="grid grid-cols-4 gap-2 mb-4">
+          <div class="text-center"><div class="text-xl font-bold" style="color:var(--text)">${ov.total}</div><div class="text-xs" style="color:var(--text-muted)">סה"כ</div></div>
+          <div class="text-center"><div class="text-xl font-bold" style="color:#22c55e">${ov.completed}</div><div class="text-xs" style="color:var(--text-muted)">הושלמו</div></div>
+          <div class="text-center"><div class="text-xl font-bold" style="color:#f59e0b">${ov.open}</div><div class="text-xs" style="color:var(--text-muted)">פתוחות</div></div>
+          <div class="text-center"><div class="text-xl font-bold" style="color:#ef4444">${ov.cancelled}</div><div class="text-xs" style="color:var(--text-muted)">בוטלו</div></div>
+        </div>
+        ${ov.avgResponse > 0 ? `
+          <div class="flex items-center justify-between py-2 border-y mb-3" style="border-color:var(--border)">
+            <span class="text-sm" style="color:var(--text-muted)">⏱ זמן תגובה ממוצע</span>
+            <span class="text-lg font-bold" style="color:${ov.avgResponse > 60 ? '#ef4444' : ov.avgResponse > 30 ? '#f59e0b' : '#22c55e'}">${ov.avgResponse}s</span>
+          </div>` : ''}
+        ${ov.typeBreakdown.length > 0 ? `
+          <h4 class="text-xs font-semibold mb-2" style="color:var(--text-muted)">פילוג לפי סוג</h4>
+          <div class="space-y-1 mb-4">
+            ${ov.typeBreakdown.map(tt => {
+              const info = CONFIG.taskTypes[tt.type] || { icon: '📋', label: tt.type };
+              return `<div class="flex items-center justify-between py-1"><span class="text-sm" style="color:var(--text)">${info.icon} ${info.label}</span><div class="flex items-center gap-2">${tt.open > 0 ? `<span class="text-xs px-2 py-0.5 rounded-full" style="background:#f59e0b22;color:#f59e0b">${tt.open} פתוחות</span>` : ''}${tt.done > 0 ? `<span class="text-xs px-2 py-0.5 rounded-full" style="background:#22c55e22;color:#22c55e">${tt.done} ✓</span>` : ''}<span class="text-sm font-bold" style="color:var(--text)">${tt.count}</span></div></div>`;
+            }).join('')}
+          </div>` : ''}
+        ${ov.waiters.length > 0 ? `
+          <h4 class="text-xs font-semibold mb-2" style="color:var(--text-muted)">ביצועי מלצרים</h4>
+          <div class="space-y-2">
+            ${ov.waiters.map(w => `
+              <div class="flex items-center justify-between py-2 border-b last:border-0" style="border-color:var(--border)">
+                <div><span class="text-sm font-medium" style="color:var(--text)">🤵 ${Utils.escape(w.name)}</span></div>
+                <div class="flex items-center gap-3 text-xs">${w.active > 0 ? `<span style="color:#f59e0b">${w.active} פעילות</span>` : ''}<span style="color:#22c55e">${w.completed} ✓</span>${w.responseTimes.length > 0 ? `<span style="color:var(--text-muted)">⏱ ${Math.round(w.responseTimes.reduce((a,b)=>a+b,0)/w.responseTimes.length)}s</span>` : ''}</div>
+              </div>`).join('')}
+          </div>` : '<p class="text-sm text-center" style="color:var(--text-muted)">אין נתוני מלצרים עדיין</p>'}
+      </div>`;
+  },
+
   attachEvents() {
     document.getElementById('manager-logout').addEventListener('click', () => { Auth.clearSession('manager'); this.cleanup(); window.location.hash = ''; });
     const os = document.getElementById('open-shift'); if (os) os.addEventListener('click', () => this.openShift());
@@ -245,11 +287,13 @@ const ManagerScreen = {
     const bt = document.getElementById('busy-toggle'); if (bt) bt.addEventListener('change', () => this.toggleBusy(bt.checked));
     const oa = document.getElementById('open-all-tables'); if (oa) oa.addEventListener('click', () => this.openAllTables());
     const at = document.getElementById('add-task-btn'); if (at) at.addEventListener('click', () => { this.state.showAddTask = true; this.render(); });
+    const sd = document.getElementById('shift-details-btn'); if (sd) sd.addEventListener('click', () => { this.state.showShiftDetails = !this.state.showShiftDetails; this.render(); });
     const cat = document.getElementById('cancel-add-task'); if (cat) cat.addEventListener('click', () => { this.state.showAddTask = false; this.render(); });
     const atf = document.getElementById('add-task-form'); if (atf) atf.addEventListener('submit', (e) => this.createTask(e));
     const hm = document.getElementById('heatmap-btn'); if (hm) hm.addEventListener('click', () => this.showHeatmap());
     const fb = document.getElementById('feedback-btn'); if (fb) fb.addEventListener('click', () => this.showFeedback());
     document.querySelectorAll('[data-cancel]').forEach(btn => btn.addEventListener('click', () => this.cancelTasks(btn.dataset.cancel)));
+    document.querySelectorAll('[data-assign]').forEach(sel => sel.addEventListener('change', () => this.assignTask(sel.dataset.assign, sel.value, sel.options[sel.selectedIndex].dataset.wid)));
     document.querySelectorAll('[data-table-id]').forEach(el => el.addEventListener('click', (e) => { if (e.target.hasAttribute('data-reset-scratch')) return; this.toggleTable(el.dataset.tableId, el.dataset.tableOpen === 'true'); }));
     document.querySelectorAll('[data-reset-scratch]').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); this.resetScratch(btn.dataset.resetScratch); }));
   },
@@ -378,7 +422,15 @@ const ManagerScreen = {
   async cancelTasks(tableKey) {
     const toCancel = this.state.tasks.filter(t => (t.table_id || t.table_number) == tableKey && t.status === 'open');
     for (const task of toCancel) { try { await sbUpdate('tasks', { id: task.id }, { status: 'cancelled', cancelled_at: new Date().toISOString(), cancelled_by: this.state.manager?.full_name || 'manager' }); } catch(e) {} }
-    Utils.toast('✖ בוטלו'); await this.loadTasks(); await this.loadShiftStats(); this.render();
+    Utils.toast('✖ בוטלו'); await this.loadTasks(); await this.loadShiftStats(); this.loadShiftOverview(); this.render();
+  },
+
+  async assignTask(tableKey, waiterName, waiterId) {
+    if (!waiterName) return;
+    const toAssign = this.state.tasks.filter(t => (t.table_id || t.table_number) == tableKey && t.status === 'open');
+    for (const task of toAssign) { try { await sbUpdate('tasks', { id: task.id }, { status: 'in_progress', assigned_waiter_name: waiterName, assigned_waiter_id: waiterId || null, claimed_at: new Date().toISOString() }); } catch(e) {} }
+    Utils.toast('🤵 הוקצה ל' + waiterName);
+    await this.loadTasks(); await this.loadShiftStats(); this.loadShiftOverview(); this.render();
   },
 
   async openShift() {
@@ -397,6 +449,6 @@ const ManagerScreen = {
   async openAllTables() { for (const t of this.state.tables) { if (!t.is_open) { try { await sbUpdate('restaurant_tables', { id: t.id }, { is_open: true }); } catch(e) {} } } this.state.tables.forEach(t => t.is_open = true); this.render(); },
 
   cleanup() { this.state.subscriptions.forEach(s => { try { s.unsubscribe(); } catch(e){} }); this.state.subscriptions = []; if (this.state.timer) clearInterval(this.state.timer); },
-  setupRealtime() { this.cleanup(); const sub = sbSubscribePoll(this.state.restaurantId, async () => { await this.loadTasks(); await this.loadWaiters(); await this.loadShiftStats(); this.render(); }); this.state.subscriptions.push(sub); },
+  setupRealtime() { this.cleanup(); const sub = sbSubscribePoll(this.state.restaurantId, async () => { await this.loadTasks(); await this.loadWaiters(); await this.loadShiftStats(); this.loadShiftOverview(); this.render(); }); this.state.subscriptions.push(sub); },
   startTimer() { if (this.state.timer) clearInterval(this.state.timer); this.state.timer = setInterval(() => { if (this.state.tasks.length > 0 || this.state.shift) this.render(); }, 5000); },
 };
