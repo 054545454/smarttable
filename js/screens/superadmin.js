@@ -290,9 +290,14 @@ const SuperAdminScreen = {
             </div>
           </div>
         </div>
-        <div class="text-left">
-          <div class="text-xs ${c.status === 'active' ? 'text-green-500' : 'text-gray-400'}">${t(c.status) || c.status}</div>
-          <div class="text-xs text-gray-400">${t('lastLogin')}: ${c.last_login_at ? Utils.formatDate(c.last_login_at) : '—'}</div>
+        <div class="flex items-center gap-3">
+          <div class="text-left">
+            <div class="text-xs ${c.status === 'active' ? 'text-green-500' : 'text-gray-400'}">${t(c.status) || c.status}</div>
+            <div class="text-xs text-gray-400">${t('lastLogin')}: ${c.last_login_at ? Utils.formatDate(c.last_login_at) : '—'}</div>
+          </div>
+          <button class="text-red-400 hover:text-red-600 text-sm px-2 py-1 rounded hover:bg-red-50 transition-all" data-delete-client="${c.id}" data-client-name="${Utils.escape(c.name)}" title="הסר לקוח">
+            🗑
+          </button>
         </div>
       </div>
     `).join('');
@@ -553,6 +558,44 @@ const SuperAdminScreen = {
           this.state.selectedClient = client;
           this.state.tab = 'clients';
           this.render();
+        }
+      });
+    });
+    
+    // Delete client buttons
+    document.querySelectorAll('[data-delete-client]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const clientId = btn.dataset.deleteClient;
+        const clientName = btn.dataset.clientName;
+        if (!confirm('האם אתה בטוח שברצונך להסיר את "' + clientName + '"?\n\nפעולה זו תמחק את כל הנתונים של המסעדה כולל:\n- משתמשים\n- שולחנות\n- תפריט\n- משימות\n- דוחות\n- הגדרות\n\nפעולה זו אינה הפיכה!')) return;
+        
+        if (!confirm('אישור סופי — האם למחוק את "' + clientName + '" לצמיתות?')) return;
+        
+        btn.disabled = true;
+        btn.textContent = '...';
+        
+        try {
+          await apiCall({
+            action: 'deleteClient',
+            restaurant_id: clientId,
+          });
+          
+          // Reload clients
+          await this.loadClients();
+          await this.loadGlobalStats();
+          this.render();
+          
+          // Show brief success notification
+          const notif = document.createElement('div');
+          notif.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 text-sm';
+          notif.textContent = '✅ הלקוח הוסר בהצלחה';
+          document.body.appendChild(notif);
+          setTimeout(() => notif.remove(), 3000);
+        } catch (err) {
+          alert('שגיאה במחיקת לקוח: ' + (err.message || 'שגיאה לא ידועה'));
+          btn.disabled = false;
+          btn.textContent = '🗑';
         }
       });
     });

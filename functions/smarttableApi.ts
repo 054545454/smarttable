@@ -364,6 +364,26 @@ Deno.serve(async (req) => {
         break;
       }
 
+      case "deleteClient": {
+        const rid = body.restaurant_id;
+        if (!rid) throw { status: 400, error: "Missing restaurant_id" };
+        // Cascade delete all related data
+        const relatedTables = [
+          "app_users", "restaurant_settings", "restaurant_tables",
+          "menu_items", "gifts", "tasks", "task_logs", "shifts",
+          "shift_waiters", "guest_profiles", "guest_feedback", "guest_orders",
+          "billing_records", "activity_logs"
+        ];
+        for (const tbl of relatedTables) {
+          const records = await sel(base44, tbl, { restaurant_id: rid });
+          for (const r of records) { try { await delR(base44, tbl, r.id); } catch (e) {} }
+        }
+        // Finally delete the restaurant itself
+        await delR(base44, "restaurants", rid);
+        result = { success: true };
+        break;
+      }
+
       case "delete": {
         const { table, filters } = body;
         if (filters.id) result = await delR(base44, table, filters.id);
