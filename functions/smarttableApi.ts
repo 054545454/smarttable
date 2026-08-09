@@ -184,31 +184,158 @@ Deno.serve(async (req) => {
 
       case "createClient": {
         const d = sanitizeObject(body.data);
-        const pwdCheck = validatePasswordPolicy(d.temp_password);
-        if (!pwdCheck.valid) throw { status: 400, error: pwdCheck.error };
+        const r = d.restaurant || d;
+        const adminData = d.admin || {};
+        const email = r.email || d.email || "";
+        const businessNum = r.business_number || d.business_number || "";
+        const ownerName = r.owner_name || d.owner_name || "";
+        const restaurantName = r.name || d.restaurant_name || "";
+        
+        // Generate initial password (meets policy: 8+ chars, upper, lower, number)
+        const generatePassword = () => {
+          const chars = "abcdefghjkmnpqrstuvwxyz";
+          const upper = "ABCDEFGHJKMNPQRSTUVWXYZ";
+          const nums = "23456789";
+          let pwd = "";
+          pwd += upper[Math.floor(Math.random() * upper.length)];
+          pwd += upper[Math.floor(Math.random() * upper.length)];
+          pwd += chars[Math.floor(Math.random() * chars.length)];
+          pwd += chars[Math.floor(Math.random() * chars.length)];
+          pwd += chars[Math.floor(Math.random() * chars.length)];
+          pwd += nums[Math.floor(Math.random() * nums.length)];
+          pwd += nums[Math.floor(Math.random() * nums.length)];
+          pwd += chars[Math.floor(Math.random() * chars.length)];
+          return pwd.split("").sort(() => Math.random() - 0.5).join("");
+        };
+        const initialPassword = generatePassword();
+        const username = businessNum || email.split("@")[0];
+        
+        // Create restaurant
         const restaurant = await ins(base44, "restaurants", {
-          name: d.restaurant_name, owner_name: d.owner_name, email: d.email,
-          phone_primary: d.phone_primary || "", phone_secondary: d.phone_secondary || "",
-          address: d.address || "", business_number: d.business_number || "",
-          contract_number: d.contract_number || "", technical_contact: d.technical_contact || "",
-          notes_internal: d.notes_internal || "", max_tables: parseInt(d.max_tables) || 20,
-          status: "active", promo_active: true, promo_expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+          name: restaurantName, owner_name: ownerName, email: email,
+          phone_primary: r.phone_primary || d.phone_primary || "",
+          phone_secondary: r.phone_secondary || "", address: r.address || d.address || "",
+          business_number: businessNum, contract_number: r.contract_number || d.contract_number || "",
+          technical_contact: r.technical_contact || "", notes_internal: r.notes_internal || "",
+          max_tables: parseInt(r.max_tables || d.max_tables) || 20,
+          status: "active", promo_active: true,
+          promo_expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
         });
+        
+        // Create restaurant settings
         await ins(base44, "restaurant_settings", {
           restaurant_id: restaurant.id, theme: "luxury", primary_color: "#C9A84C",
           secondary_color: "#1A1A1A", font_family: "Playfair Display", default_language: "he",
           customer_view_mode: "full_menu", escalation_green_minutes: 2, escalation_orange_minutes: 4, escalation_alert_minutes: 5,
         });
-        const { hash, salt } = await hashPassword(d.temp_password);
+        
+        // Create admin user (username = business number)
+        const { hash, salt } = await hashPassword(initialPassword);
         await ins(base44, "app_users", {
-          username: d.username || d.email.split("@")[0], full_name: d.owner_name,
-          role: "admin", restaurant_id: restaurant.id, password_hash: `h:${salt}:${hash}`, is_active: true, must_change_password: true,
+          username: username, full_name: ownerName || adminData.full_name,
+          role: "admin", restaurant_id: restaurant.id,
+          password_hash: `h:${salt}:${hash}`, is_active: true, must_change_password: true,
         });
-        const tc = Math.min(parseInt(d.max_tables) || 10, 10);
+        
+        // Create tables
+        const tc = Math.min(parseInt(r.max_tables || d.max_tables) || 10, 10);
         for (let i = 1; i <= tc; i++) {
-          await ins(base44, "restaurant_tables", { restaurant_id: restaurant.id, table_number: i, qr_token: `qr_${crypto.randomUUID().replace(/-/g, "")}`, is_open: false, scratch_used: false });
+          await ins(base44, "restaurant_tables", {
+            restaurant_id: restaurant.id, table_number: i,
+            qr_token: `qr_${crypto.randomUUID().replace(/-/g, "")}`,
+            is_open: false, scratch_used: false,
+          });
         }
-        result = { success: true, restaurant_id: restaurant.id }; break;
+        
+        // Send welcome email via Gmail connector
+        let emailSent = false;
+        let emailError = null;
+        try {
+          const { accessToken } = await base44.asServiceRole.connectors.getConnection("gmail");
+          const loginUrl = `https://violet-dunlin-978279.hostingersite.com/#a/${restaurant.id}`;
+          
+          const subject = `=?utf-8?B?${btoa("ברוכים הבאים ל-SmartTable! פרטי הכניסה שלך")}?=`;
+          
+          const htmlBody = [
+            '<div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">',
+            '<h2 style="color:#C9A84C">ברוכים הבאים ל-SmartTable! 🎉</h2>',
+            '<p>שלום ' + ownerName + ',</p>',
+            '<p>חשבון המסעדה שלך נוצר בהצלחה. להלן פרטי הכניסה שלך:</p>',
+            '<div style="background:#f5f5f5;padding:20px;border-radius:8px;margin:20px 0">',
+            '<p style="margin:5px 0"><b>מסעדה:</b> ' + restaurantName + '</p>',
+            '<p style="margin:5px 0"><b>שם משתמש:</b> ' + username + '</p>',
+            '<p style="margin:5px 0"><b>סיסמה ראשונית:</b> <code style="background:#ddd;padding:2px 6px;border-radius:3px">' + initialPassword + '</code></p>',
+            '</div>',
+            '<p>⚠️ <b>חובה לשנות את הסיסמה בכניסה הראשונה.</b></p>',
+            '<p><b>קישור לכניסה:</b><br><a href="' + loginUrl + '" style="color:#C9A84C;font-size:16px">' + loginUrl + '</a></p>',
+            '<p style="color:#888;margin-top:30px;font-size:12px">SmartTable — מערכת ניהול חכמה למסעדות</p>',
+            '</div>'
+          ].join("\n");
+          
+          const textBody = [
+            "ברוכים הבאים ל-SmartTable!",
+            "",
+            "שלום " + ownerName + ",",
+            "חשבון המסעדה שלך נוצר בהצלחה.",
+            "",
+            "פרטי הכניסה:",
+            "מסעדה: " + restaurantName,
+            "שם משתמש: " + username,
+            "סיסמה ראשונית: " + initialPassword,
+            "",
+            "קישור לכניסה: " + loginUrl,
+            "",
+            "חובה לשנות את הסיסמה בכניסה הראשונה."
+          ].join("\n");
+          
+          // Build RFC 2822 message
+          const boundary = "boundary_" + crypto.randomUUID().replace(/-/g, "");
+          const rawMessage = [
+            "From: SmartTable <uidesign68@gmail.com>",
+            "To: " + email,
+            "Subject: " + subject,
+            "MIME-Version: 1.0",
+            "Content-Type: multipart/alternative; boundary=\"" + boundary + "\"",
+            "",
+            "--" + boundary,
+            "Content-Type: text/plain; charset=utf-8",
+            "Content-Transfer-Encoding: base64",
+            "",
+            btoa(unescape(encodeURIComponent(textBody))),
+            "",
+            "--" + boundary,
+            "Content-Type: text/html; charset=utf-8",
+            "Content-Transfer-Encoding: base64",
+            "",
+            btoa(unescape(encodeURIComponent(htmlBody))),
+            "",
+            "--" + boundary + "--",
+            ""
+          ].join("\n");
+          
+          const sendRes = await fetch(
+            "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+            {
+              method: "POST",
+              headers: {
+                "Authorization": "Bearer " + accessToken,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({ raw: btoa(unescape(encodeURIComponent(rawMessage))) })
+            }
+          );
+          
+          if (sendRes.ok) {
+            emailSent = true;
+          } else {
+            emailError = "Gmail API error: " + sendRes.status;
+          }
+        } catch (emailErr) {
+          emailError = emailErr.message || "Failed to send email";
+        }
+        
+        result = { success: true, restaurant_id: restaurant.id, initial_password: initialPassword, email_sent: emailSent, email_error: emailError };
+        break;
       }
 
       case "select": {
