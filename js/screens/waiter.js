@@ -102,7 +102,7 @@ const WaiterScreen = {
               <div class="font-semibold flex items-center gap-2">${t('tableNumber')} ${merged.table_number} ${badge}</div>
               <div class="text-xs opacity-90">${labels}</div>
               <div class="text-xs opacity-75 mt-0.5">
-                ${isClaimed ? `🤵 נלקח ע"י ${merged.assignedWaiter||''}` : `⏱ ${Utils.formatDuration(elapsed)}`}
+                ${isClaimed ? `🤵 נלקח ע"י ${merged.assignedWaiter||''}` : `<span data-task-time="${merged.earliestAt}">⏱ ${Utils.formatDuration(elapsed)}</span>`}
                 ${subTasks[0]?.special_note ? ` · 📝 ${Utils.escape(subTasks[0].special_note)}` : ''}
               </div>
             </div>
@@ -143,12 +143,25 @@ const WaiterScreen = {
 
   setupRealtime() {
     this.state.subscriptions.forEach(s => { try { s.unsubscribe(); } catch(e){} }); this.state.subscriptions = [];
-    const sub = sbSubscribeTasks(this.state.restaurantId, async () => { await this.loadTasks(); this.render(); });
+    let lastTaskSignature = '';
+    const sub = sbSubscribeTasks(this.state.restaurantId, async () => {
+      await this.loadTasks();
+      const sig = JSON.stringify(this.state.mergedTasks.map(m => m.table_id + ':' + m.subTasks.length + ':' + m.isClaimed + ':' + m.earliestAt));
+      if (sig !== lastTaskSignature) { lastTaskSignature = sig; this.render(); }
+    });
     this.state.subscriptions.push(sub);
   },
 
   startTimer() {
     if (this.state.timer) clearInterval(this.state.timer);
-    this.state.timer = setInterval(() => { if (this.state.mergedTasks.length > 0) { const l = document.getElementById('task-list'); if (l) this.render(); } }, 5000);
+    this.state.timer = setInterval(() => {
+      if (this.state.mergedTasks.length === 0) return;
+      // Only update elapsed time text — no full re-render
+      document.querySelectorAll('[data-task-time]').forEach(el => {
+        const created = el.dataset.taskTime;
+        const elapsed = Math.floor((Date.now() - new Date(created).getTime()) / 1000);
+        if (!isNaN(elapsed)) el.textContent = '⏱ ' + Utils.formatDuration(elapsed);
+      });
+    }, 5000);
   },
 };
