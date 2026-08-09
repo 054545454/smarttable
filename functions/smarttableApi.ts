@@ -122,6 +122,14 @@ function sortOpts(options) {
   return opts;
 }
 
+// ─── UTF-8 to Base64 (for Hebrew email encoding in Deno) ─────────
+function utf8ToBase64(str) {
+  const bytes = new TextEncoder().encode(str);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
 // ─── Main Handler ────────────────────────────────────────────────
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -254,7 +262,7 @@ Deno.serve(async (req) => {
           const { accessToken } = await base44.asServiceRole.connectors.getConnection("gmail");
           const loginUrl = `https://violet-dunlin-978279.hostingersite.com/#a/${restaurant.id}`;
           
-          const subject = `=?utf-8?B?${btoa("ברוכים הבאים ל-SmartTable! פרטי הכניסה שלך")}?=`;
+          const subject = `=?utf-8?B?${utf8ToBase64("ברוכים הבאים ל-SmartTable! פרטי הכניסה שלך")}?=`;
           
           const htmlBody = [
             '<div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">',
@@ -301,13 +309,13 @@ Deno.serve(async (req) => {
             "Content-Type: text/plain; charset=utf-8",
             "Content-Transfer-Encoding: base64",
             "",
-            btoa(unescape(encodeURIComponent(textBody))),
+            utf8ToBase64(textBody),
             "",
             "--" + boundary,
             "Content-Type: text/html; charset=utf-8",
             "Content-Transfer-Encoding: base64",
             "",
-            btoa(unescape(encodeURIComponent(htmlBody))),
+            utf8ToBase64(htmlBody),
             "",
             "--" + boundary + "--",
             ""
@@ -321,7 +329,7 @@ Deno.serve(async (req) => {
                 "Authorization": "Bearer " + accessToken,
                 "Content-Type": "application/json"
               },
-              body: JSON.stringify({ raw: btoa(unescape(encodeURIComponent(rawMessage))) })
+              body: JSON.stringify({ raw: utf8ToBase64(rawMessage) })
             }
           );
           
