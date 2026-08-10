@@ -133,6 +133,8 @@ const SuperAdminScreen = {
       </div>
     `;
     this.attachEvents();
+    if (this.state.tab === 'clients') { this.attachClientClickEvents(); }
+    if (this.state.tab === 'billing') { this.attachBillingEvents(); }
     if (this.state.tab === 'realtime') this.loadRealtimeView();
   },
 
@@ -415,7 +417,7 @@ const SuperAdminScreen = {
 
   loadRealtimeView() {},
 
-  setRealtimeScreen(screenType) {
+  async setRealtimeScreen(screenType) {
     this.state.realtimeScreen = screenType;
     const c = this.state.realtimeClient;
     if (!c) return;
@@ -428,7 +430,23 @@ const SuperAdminScreen = {
       case 'admin': url = `https://violet-dunlin-978279.hostingersite.com/#a/${c.id}`; break;
       case 'manager': url = `https://violet-dunlin-978279.hostingersite.com/#m/${c.id}`; break;
       case 'waiter': url = `https://violet-dunlin-978279.hostingersite.com/#w/${c.id}`; break;
-      case 'customer': url = `https://violet-dunlin-978279.hostingersite.com/#c/demo`; break;
+      case 'customer': {
+        // Fetch first table's QR token for this restaurant
+        placeholder.textContent = 'טוען שולחן...';
+        try {
+          const tables = await sbSelect('restaurant_tables', { restaurant_id: c.id }, { limit: 1 });
+          if (tables && tables.length > 0 && tables[0].qr_token) {
+            url = `https://violet-dunlin-978279.hostingersite.com/#c/${tables[0].qr_token}`;
+          } else {
+            placeholder.textContent = 'אין שולחנות מוגדרים למסעדה זו';
+            return;
+          }
+        } catch(e) {
+          placeholder.textContent = 'שגיאה בטעינת שולחנות';
+          return;
+        }
+        break;
+      }
     }
     
     if (url) {
