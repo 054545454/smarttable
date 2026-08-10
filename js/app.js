@@ -3,6 +3,7 @@ const App = {
   init() {
     this.handleRoute();
     window.addEventListener('hashchange', () => this.handleRoute());
+    Utils.initNetworkBanner();
   },
 
   handleRoute() {

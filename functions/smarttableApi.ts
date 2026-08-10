@@ -354,7 +354,34 @@ Deno.serve(async (req) => {
         break;
       }
 
-      case "insert": { result = await ins(base44, body.table, sanitizeObject(body.data)); break; }
+      case "insert": {
+        const d = sanitizeObject(body.data);
+        // Idempotency: if inserting a task, check for duplicate in last 5 seconds
+        if (body.table === "tasks" && d.restaurant_id && d.table_id && d.type) {
+          const fiveSecAgo = new Date(Date.now() - 5000).toISOString();
+          const existing = await sel(base44, "tasks", {
+            restaurant_id: d.restaurant_id,
+            table_id: d.table_id,
+            type: d.type,
+            status: "open"
+          });
+          const recentDup = existing.find(t => {
+            const created = new Date(t.created_at || t.created_date || 0);
+            return created > new Date(fiveSecAgo);
+          });
+          if (recentDup) { result = recentDup; break; }
+          // Also check in_progress
+          const inProg = await sel(base44, "tasks", {
+            restaurant_id: d.restaurant_id,
+            table_id: d.table_id,
+            type: d.type,
+            status: "in_progress"
+          });
+          if (inProg.length > 0) { result = inProg[0]; break; }
+        }
+        result = await ins(base44, body.table, d);
+        break;
+      }
 
       case "update": {
         const { table, filters, data } = body;

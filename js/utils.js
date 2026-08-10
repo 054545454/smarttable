@@ -164,4 +164,50 @@ const Utils = {
     const csv = [headers.join(','), ...rows].join('\n');
     this.downloadFile('\uFEFF' + csv, filename, 'text/csv;charset=utf-8');
   },
+
+  // ─── Wake Lock API (prevent screen sleep) ──────────────
+  requestWakeLock(screenObj) {
+    if (!('wakeLock' in navigator)) return;
+    const request = async () => {
+      try {
+        if (screenObj.state.wakeLock) await screenObj.state.wakeLock.release();
+        screenObj.state.wakeLock = await navigator.wakeLock.request('screen');
+      } catch(e) { /* wake lock failed silently */ }
+    };
+    request();
+    if (!screenObj._wakeLockHandler) {
+      screenObj._wakeLockHandler = () => { if (document.visibilityState === 'visible') request(); };
+      document.addEventListener('visibilitychange', screenObj._wakeLockHandler);
+    }
+  },
+
+  // ─── Network Status Banner ────────────────────────────
+  initNetworkBanner() {
+    const showBanner = (type) => {
+      let banner = document.getElementById('network-banner');
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'network-banner';
+        banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;text-align:center;padding:8px 16px;font-size:14px;font-weight:600;transition:opacity 0.3s';
+        document.body.appendChild(banner);
+      }
+      if (type === 'offline') {
+        banner.style.background = '#dc2626';
+        banner.style.color = '#fff';
+        banner.textContent = '⚠️ מצב לא מקוון — פעולות יסתנכרנו אוטומטית כשהרשת תחזור';
+        banner.style.opacity = '1';
+        banner.style.display = 'block';
+      } else if (type === 'online') {
+        banner.style.background = '#16a34a';
+        banner.style.color = '#fff';
+        banner.textContent = '✅ החיבור חזר, מסתנכרן...';
+        banner.style.opacity = '1';
+        banner.style.display = 'block';
+        setTimeout(() => { banner.style.opacity = '0'; setTimeout(() => { banner.style.display = 'none'; }, 300); }, 2500);
+      }
+    };
+    window.addEventListener('offline', () => showBanner('offline'));
+    window.addEventListener('online', () => showBanner('online'));
+    if (!navigator.onLine) setTimeout(() => showBanner('offline'), 500);
+  },
 };

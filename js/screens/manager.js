@@ -3,7 +3,7 @@ const ManagerScreen = {
   state: {
     restaurantId: null, manager: null, shift: null, tables: [], waiters: [],
     tasks: [], allShiftTasks: [], settings: null, subscriptions: [], timer: null,
-    showAddTask: false, showHeatmap: false, showFeedback: false, showShiftDetails: false, heatmapData: null, waiterStats: null, feedback: [],
+    showAddTask: false, showHeatmap: false, showFeedback: false, showShiftDetails: false, heatmapData: null, waiterStats: null, feedback: [], wakeLock: null,
   },
 
   init(restaurantId) {

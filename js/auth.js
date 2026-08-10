@@ -101,23 +101,25 @@ const Auth = {
   
   showChangePasswordScreen(session, isFirstLogin = false) {
     const isAdmin = session.role === 'admin';
+    // HARD BLOCK: completely replace app — no navigation possible
     document.getElementById('app').innerHTML = `
-      <div class="min-h-screen flex items-center justify-center bg-gray-50 p-6">
-        <div class="w-full max-w-md">
+      <div class="min-h-screen flex items-center justify-center" style="background:#0F0F0F">
+        <div class="w-full max-w-md px-6">
           <div class="text-center mb-6">
-            <div class="text-5xl mb-3">${isAdmin ? '🏢' : '👑'}</div>
-            <h1 class="text-2xl font-playfair text-gray-800">שינוי סיסמה</h1>
-            <p class="text-gray-500 text-sm mt-2">${isFirstLogin ? 'זוהי הכניסה הראשונה שלך. עליך לשנות את הסיסמה הזמנית.' : 'אנא הזן סיסמה חדשה'}</p>
+            <div class="text-5xl mb-3">${isAdmin ? '🔒' : '👑'}</div>
+            <h1 class="text-2xl font-playfair" style="color:#C9A84C">חובה לשנות סיסמה</h1>
+            <p style="color:#9A9A9A" class="text-sm mt-2">${isFirstLogin ? 'זוהי הכניסה הראשונה שלך. עליך לשנות את הסיסמה הזמנית לפני שתוכל להמשיך.' : 'אנא הזן סיסמה חדשה'}</p>
+            <p style="color:#7A7A7A" class="text-xs mt-2">המערכת נעולה עד לשינוי הסיסמה</p>
           </div>
           <form id="change-pwd-form" class="space-y-4">
             <div>
-              <label class="text-sm text-gray-600 mb-1 block">סיסמה חדשה</label>
-              <input type="password" id="new-pwd" class="input-field" required minlength="8" placeholder="לפחות 8 תווים">
-              <p class="text-xs text-gray-400 mt-1">חובה: 8+ תווים, אות גדולה, אות קטנה ומספר</p>
+              <label class="text-sm mb-1 block" style="color:#E5D5A8">סיסמה חדשה</label>
+              <input type="password" id="new-pwd" class="input-field" required minlength="8" placeholder="לפחות 8 תווים" style="background:#2A2A2A;color:#fff;border-color:#3A3A3A">
+              <p class="text-xs mt-1" style="color:#7A7A7A">חובה: 8+ תווים, אות גדולה, אות קטנה ומספר</p>
             </div>
             <div>
-              <label class="text-sm text-gray-600 mb-1 block">אימות סיסמה</label>
-              <input type="password" id="new-pwd-confirm" class="input-field" required minlength="8">
+              <label class="text-sm mb-1 block" style="color:#E5D5A8">אימות סיסמה</label>
+              <input type="password" id="new-pwd-confirm" class="input-field" required minlength="8" style="background:#2A2A2A;color:#fff;border-color:#3A3A3A">
             </div>
             <p id="pwd-error" class="text-red-500 text-sm text-center hidden"></p>
             <div id="pwd-strength" class="text-sm text-center"></div>

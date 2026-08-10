@@ -304,23 +304,54 @@ const SuperAdminScreen = {
   },
 
   renderBilling() {
+    const planLabels = { standard: 'סטנדרט', premium: 'פרימיום', enterprise: 'אנטרפרייז' };
+    const statusColors = { active: 'bg-green-100 text-green-700', past_due: 'bg-red-100 text-red-700', cancelled: 'bg-gray-100 text-gray-500', trial: 'bg-blue-100 text-blue-700' };
+    const statusLabels = { active: 'פעיל', past_due: 'חובה', cancelled: 'מבוטל', trial: 'ניסיון' };
+
+    const calcBillingStatus = (c) => {
+      if (c.billing_status === 'cancelled') return 'cancelled';
+      if (c.promo_active && c.promo_expires_at && new Date(c.promo_expires_at) > new Date()) return 'trial';
+      if (c.last_billing_date) {
+        const days = (Date.now() - new Date(c.last_billing_date).getTime()) / (1000 * 60 * 60 * 24);
+        if (days > 35) return 'past_due';
+      }
+      return c.billing_status || (c.promo_active ? 'trial' : 'active');
+    };
+
     return `
       <div class="space-y-4">
         <h2 class="text-lg font-semibold text-gray-800">${t('billing')}</h2>
-        ${this.state.clients.map(c => `
-          <div class="card flex items-center justify-between">
-            <div>
-              <div class="font-medium text-gray-800">${Utils.escape(c.name)}</div>
-              <div class="text-xs text-gray-400">חיוב חודשי · יום ${c.billing_day || 1} · ${c.billing_currency || 'ILS'}</div>
-            </div>
-            <div class="text-left">
-              <div class="text-sm font-semibold ${c.promo_active ? 'text-green-500' : 'text-gray-600'}">
-                ${c.promo_active ? 'פרומו פעיל' : 'חיוב רגיל'}
+        ${this.state.clients.map(c => {
+          const bs = calcBillingStatus(c);
+          const plan = c.subscription_plan || 'standard';
+          const fee = c.monthly_fee || c.billing_amount || 0;
+          const showAlert = bs === 'past_due' || (c.promo_expires_at && new Date(c.promo_expires_at) < new Date());
+          return `
+          <div class="card ${showAlert ? 'border-2 border-red-300' : ''}">
+            <div class="flex items-center justify-between mb-2">
+              <div>
+                <div class="font-medium text-gray-800">${Utils.escape(c.name)}</div>
+                <div class="text-xs text-gray-400">${planLabels[plan] || plan} · יום ${c.billing_day || 1} · ${c.billing_currency || 'ILS'}</div>
               </div>
-              ${c.promo_expires_at ? `<div class="text-xs text-gray-400">עד ${Utils.formatDate(c.promo_expires_at)}</div>` : ''}
+              <span class="px-2 py-1 rounded-full text-xs font-bold ${statusColors[bs] || 'bg-gray-100'}">${statusLabels[bs] || bs}</span>
             </div>
-          </div>
-        `).join('') || Utils.emptyState('אין לקוחות', '💰')}
+            <div class="flex items-center justify-between text-sm">
+              <div class="text-gray-600">
+                חיוב חודשי: <b>₪${fee}</b>
+                ${c.credit_card_last4 ? ` · כרטיס ****${c.credit_card_last4}` : ''}
+              </div>
+              <div class="text-xs text-gray-400">
+                ${c.last_billing_date ? 'חיוב אחרון: ' + Utils.formatDate(c.last_billing_date) : 'טרם חויב'}
+              </div>
+            </div>
+            ${c.promo_active && c.promo_expires_at ? `<div class="text-xs mt-1 ${new Date(c.promo_expires_at) > new Date() ? 'text-green-500' : 'text-red-500'}">פרומו עד ${Utils.formatDate(c.promo_expires_at)}</div>` : ''}
+            ${showAlert ? '<div class="text-xs text-red-500 mt-1 font-bold">⚠️ דרוש עדכון אמצעי תשלום / סליקה</div>' : ''}
+            <div class="flex gap-2 mt-2">
+              <button data-bill-manual="${c.id}" class="text-xs px-3 py-1 rounded-lg bg-gold text-white hover:opacity-80 transition-all">חיוב ידני</button>
+              <button data-bill-edit="${c.id}" class="text-xs px-3 py-1 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all">עריכת חיוב</button>
+            </div>
+          </div>`;
+        }).join('') || Utils.emptyState('אין לקוחות', '💰')}
       </div>
     `;
   },
@@ -547,6 +578,102 @@ const SuperAdminScreen = {
 
     // Client list clicks
     this.attachClientClickEvents();
+  },
+
+  attachBillingEvents() {
+    document.querySelectorAll('[data-bill-manual]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const clientId = btn.dataset.billManual;
+        const client = this.state.clients.find(c => c.id === clientId);
+        if (!client) return;
+        if (!confirm('אשר חיוב חודשי עבור "' + client.name + '"?\nסכום: ₪' + (client.monthly_fee || client.billing_amount || 0))) return;
+        btn.disabled = true; btn.textContent = '...';
+        try {
+          const now = new Date().toISOString();
+          const future = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+          await sbUpdate('restaurants', { id: clientId }, {
+            last_billing_date: now,
+            promo_expires_at: future,
+            billing_status: 'active'
+          });
+          await this.loadClients();
+          this.render();
+          Utils.toast('✅ חיוב בוצע בהצלחה');
+        } catch(err) {
+          alert('שגיאה: ' + (err.message || ''));
+          btn.disabled = false; btn.textContent = 'חיוב ידני';
+        }
+      });
+    });
+
+    document.querySelectorAll('[data-bill-edit]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const clientId = btn.dataset.billEdit;
+        const client = this.state.clients.find(c => c.id === clientId);
+        if (!client) return;
+        this.showBillingEditModal(client);
+      });
+    });
+  },
+
+  showBillingEditModal(client) {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4';
+    modal.innerHTML = `
+      <div class="card w-full max-w-md animate-spring-bounce">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-semibold text-gray-800">עריכת חיוב — ${Utils.escape(client.name)}</h2>
+          <button id="close-bill-modal" class="text-2xl text-gray-400">✕</button>
+        </div>
+        <form id="billing-form" class="space-y-3">
+          <div>
+            <label class="text-sm text-gray-600 mb-1 block">חבילה</label>
+            <select id="bill-plan" class="input-field">
+              <option value="standard" ${client.subscription_plan === 'standard' ? 'selected' : ''}>סטנדרט</option>
+              <option value="premium" ${client.subscription_plan === 'premium' ? 'selected' : ''}>פרימיום</option>
+              <option value="enterprise" ${client.subscription_plan === 'enterprise' ? 'selected' : ''}>אנטרפרייז</option>
+            </select>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="text-sm text-gray-600 mb-1 block">סכום חודשי (₪)</label><input type="number" id="bill-fee" class="input-field" value="${client.monthly_fee || client.billing_amount || 290}"></div>
+            <div><label class="text-sm text-gray-600 mb-1 block">יום חיוב</label><input type="number" id="bill-day" class="input-field" min="1" max="28" value="${client.billing_day || 1}"></div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="text-sm text-gray-600 mb-1 block">4 ספרות אחרונות כרטיס</label><input type="text" id="bill-cc" class="input-field" maxlength="4" value="${client.credit_card_last4 || ''}" placeholder="0000"></div>
+            <div><label class="text-sm text-gray-600 mb-1 block">סטטוס</label>
+              <select id="bill-status" class="input-field">
+                <option value="active" ${client.billing_status === 'active' ? 'selected' : ''}>פעיל</option>
+                <option value="trial" ${client.billing_status === 'trial' ? 'selected' : ''}>ניסיון</option>
+                <option value="past_due" ${client.billing_status === 'past_due' ? 'selected' : ''}>חובה</option>
+                <option value="cancelled" ${client.billing_status === 'cancelled' ? 'selected' : ''}>מבוטל</option>
+              </select>
+            </div>
+          </div>
+          <button type="submit" class="btn-primary w-full">שמור</button>
+        </form>
+      </div>`;
+    document.body.appendChild(modal);
+    document.getElementById('close-bill-modal').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+    document.getElementById('billing-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        await sbUpdate('restaurants', { id: client.id }, {
+          subscription_plan: document.getElementById('bill-plan').value,
+          monthly_fee: parseFloat(document.getElementById('bill-fee').value) || 0,
+          billing_day: parseInt(document.getElementById('bill-day').value) || 1,
+          billing_amount: parseFloat(document.getElementById('bill-fee').value) || 0,
+          credit_card_last4: document.getElementById('bill-cc').value || null,
+          billing_status: document.getElementById('bill-status').value,
+        });
+        await this.loadClients();
+        this.render();
+        modal.remove();
+        Utils.toast('✅ נתוני חיוב עודכנו');
+      } catch(err) { alert('שגיאה: ' + (err.message || '')); }
+    });
   },
 
   attachClientClickEvents() {

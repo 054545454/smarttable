@@ -220,10 +220,13 @@ const CustomerScreen = {
   renderServiceButton(type, labelKey) {
     const icon = CONFIG.taskTypes[type]?.icon || '📋';
     return `
-      <button data-task-type="${type}" class="service-btn card flex flex-col items-center justify-center py-5 spring-scale animate-spring-in"
+      <button data-task-type="${type}" class="service-btn card flex flex-col items-center justify-center py-5 spring-scale animate-spring-in relative overflow-hidden"
         style="background:var(--card);border:1px solid var(--border);min-height:80px">
-        <span class="text-2xl mb-1">${icon}</span>
-        <span class="text-sm font-medium" style="color:var(--text)">${t(labelKey)}</span>
+        <span class="text-2xl mb-1 svc-icon">${icon}</span>
+        <span class="text-sm font-medium svc-label" style="color:var(--text)">${t(labelKey)}</span>
+        <div class="svc-loader absolute inset-0 flex items-center justify-center hidden" style="background:var(--card)">
+          <div class="spinner" style="width:24px;height:24px;border-color:var(--accent)"></div>
+        </div>
       </button>`;
   },
 
@@ -297,20 +300,53 @@ const CustomerScreen = {
   },
 
   async requestService(type) {
-    const existing = this.state.activeTasks.find(t => t.type === type && t.status === 'open');
+    // Idempotency: check existing open/in_progress task of same type
+    const existing = this.state.activeTasks.find(t => t.type === type && (t.status === 'open' || t.status === 'in_progress'));
     if (existing) { Utils.toast(t('requestSent')); return; }
+
+    // Find and disable the button immediately
+    const btn = document.querySelector('[data-task-type="' + type + '"]');
+    if (btn) {
+      btn.disabled = true;
+      btn.style.opacity = '0.6';
+      const loader = btn.querySelector('.svc-loader');
+      const icon = btn.querySelector('.svc-icon');
+      const label = btn.querySelector('.svc-label');
+      if (loader) loader.classList.remove('hidden');
+      if (icon) icon.style.visibility = 'hidden';
+      if (label) label.style.visibility = 'hidden';
+    }
+
     Utils.toast(t('requestSent'));
     Utils.vibrate(50);
+
     // Optimistic update
     const tempTask = { type, status: 'open', _optimistic: true };
     this.state.activeTasks.push(tempTask);
     document.getElementById('active-tasks').innerHTML = this.renderActiveTasks();
+
     try {
       const result = await sbInsert('tasks', { restaurant_id: this.state.restaurant.id, table_id: this.state.table.id, table_number: this.state.table.table_number, type, status: 'open', created_at: new Date().toISOString() });
       const realTask = Array.isArray(result) ? result[0] : result;
       const idx = this.state.activeTasks.indexOf(tempTask);
       if (idx >= 0) this.state.activeTasks[idx] = realTask;
-    } catch(e) { Utils.toast('שגיאה בשליחת בקשה'); }
+    } catch(e) {
+      Utils.toast('שגיאה בשליחת בקשה');
+      // Re-enable button on error
+      if (btn) {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        const loader = btn.querySelector('.svc-loader');
+        const icon = btn.querySelector('.svc-icon');
+        const label = btn.querySelector('.svc-label');
+        if (loader) loader.classList.add('hidden');
+        if (icon) icon.style.visibility = 'visible';
+        if (label) label.style.visibility = 'visible';
+      }
+      const ti = this.state.activeTasks.indexOf(tempTask);
+      if (ti >= 0) this.state.activeTasks.splice(ti, 1);
+      document.getElementById('active-tasks').innerHTML = this.renderActiveTasks();
+    }
   },
 
   // ─── Profile Modal ──────────────────────────────────────────────

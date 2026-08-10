@@ -41,6 +41,7 @@ const WaiterScreen = {
   async start() {
     try { const s = await sbSelect('restaurant_settings', { restaurant_id: this.state.restaurantId }, { single: true }); this.state.settings = s || {}; } catch(e) { this.state.settings = {}; }
     await this.loadTasks(); this.render(); this.setupRealtime(); this.startTimer();
+    Utils.requestWakeLock(this);
   },
 
   async loadTasks() {
