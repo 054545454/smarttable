@@ -8,6 +8,34 @@ const CustomerScreen = {
     showBillSplit: false, guestOrders: [],
   },
 
+  // Golden confetti burst at center of element
+  burstConfetti(x, y) {
+    const colors = ['#C9A84C', '#E5D5A8', '#D4AF37', '#FFD700', '#B8860B', '#F4D35E'];
+    const count = 35;
+    for (let i = 0; i < count; i++) {
+      const piece = document.createElement('div');
+      const isCircle = Math.random() > 0.5;
+      piece.className = 'confetti-piece' + (isCircle ? ' circle' : '');
+      piece.style.left = x + 'px';
+      piece.style.top = y + 'px';
+      piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.4;
+      const dist = 60 + Math.random() * 120;
+      piece.style.setProperty('--cx', (Math.cos(angle) * dist) + 'px');
+      piece.style.setProperty('--cy', (Math.sin(angle) * dist + Math.random() * 40) + 'px');
+      piece.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
+      piece.style.animationDelay = (Math.random() * 0.15) + 's';
+      document.body.appendChild(piece);
+      setTimeout(() => piece.remove(), 1200);
+    }
+  },
+
+  // Get center coordinates of an element
+  getElementCenter(el) {
+    const rect = el.getBoundingClientRect();
+    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  },
+
   async init(token) {
     this.state.token = token;
     this.state.subscriptions.forEach(s => { try { s.unsubscribe(); } catch(e){} });
@@ -219,6 +247,18 @@ const CustomerScreen = {
 
   renderServiceButton(type, labelKey) {
     const icon = CONFIG.taskTypes[type]?.icon || '📋';
+    // Check if there's an active task of this type
+    const activeTask = this.state.activeTasks.find(t => t.type === type && (t.status === 'open' || t.status === 'in_progress'));
+    if (activeTask) {
+      const inProgress = activeTask.status === 'in_progress';
+      return `
+        <button data-task-type="${type}" disabled class="service-btn service-btn-waiting card flex flex-col items-center justify-center py-5 relative overflow-hidden"
+          style="background:var(--card);border:1px solid var(--accent);min-height:80px;opacity:0.85">
+          <span class="text-2xl mb-1">${icon}</span>
+          <div class="svc-status-text">${inProgress ? '🤵 ' + t('waiterOnTheWay') : '⏳ ' + t('requestSent')}</div>
+          <div class="svc-status-sub">${inProgress ? 'בדרך כלל תוך פחות מדקה' : 'הבקשה נשלחה'}</div>
+        </button>`;
+    }
     return `
       <button data-task-type="${type}" class="service-btn card flex flex-col items-center justify-center py-5 spring-scale animate-spring-in relative overflow-hidden"
         style="background:var(--card);border:1px solid var(--border);min-height:80px">
@@ -271,20 +311,66 @@ const CustomerScreen = {
   },
 
   setupScratch(overlay) {
-    let isScratching = false, count = 0;
-    const handleMove = (e) => {
+    let isScratching = false, count = 0, ctx = null, canvas = null;
+    // Create a canvas overlay for smooth scratching
+    const parent = overlay.parentElement;
+    const rect = parent.getBoundingClientRect();
+    canvas = document.createElement('canvas');
+    canvas.width = rect.width || 300;
+    canvas.height = rect.height || 200;
+    canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border-radius:1rem;cursor:pointer;touch-action:none;';
+    ctx = canvas.getContext('2d');
+    // Fill with gradient scratch surface
+    const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+    grad.addColorStop(0, '#ccc'); grad.addColorStop(0.5, '#bbb'); grad.addColorStop(1, '#999');
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Add "scratch to reveal" text on canvas
+    ctx.fillStyle = '#666'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('✨ גרוד לחשיפה', canvas.width / 2, canvas.height / 2);
+    overlay.style.display = 'none';
+    parent.appendChild(canvas);
+
+    let revealed = false;
+    const scratch = (e) => {
+      if (revealed) return;
       if (!isScratching) return;
-      e.preventDefault(); count++;
-      if (count > 12) {
-        overlay.style.opacity = '0';
-        Utils.vibrate([30, 20, 50]);
-        setTimeout(() => { overlay.style.display = 'none'; this.claimGift(); }, 500);
+      e.preventDefault();
+      const r = canvas.getBoundingClientRect();
+      const x = (e.clientX - r.left) * (canvas.width / r.width);
+      const y = (e.clientY - r.top) * (canvas.height / r.height);
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.beginPath(); ctx.arc(x, y, 25, 0, Math.PI * 2); ctx.fill();
+      count++;
+      // Check reveal percentage every few strokes
+      if (count % 5 === 0) {
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        let cleared = 0;
+        for (let i = 3; i < imgData.data.length; i += 4) { if (imgData.data[i] === 0) cleared++; }
+        const pct = cleared / (canvas.width * canvas.height);
+        if (pct > 0.35 || count > 15) {
+          revealed = true;
+          // Spring fade out the canvas
+          canvas.classList.add('scratch-fade-out');
+          Utils.vibrate([30, 20, 50]);
+          // Reveal the prize with spring
+          const prize = document.getElementById('scratch-prize');
+          if (prize) prize.classList.add('scratch-prize-revealed');
+          // Burst confetti from the center of the card
+          const center = this.getElementCenter(parent);
+          this.burstConfetti(center.x, center.y);
+          setTimeout(() => {
+            canvas.style.display = 'none';
+            this.claimGift();
+          }, 600);
+        }
       }
     };
-    overlay.addEventListener('pointerdown', e => { isScratching = true; handleMove(e); });
-    overlay.addEventListener('pointermove', handleMove);
-    overlay.addEventListener('pointerup', () => isScratching = false);
-    overlay.addEventListener('pointerleave', () => isScratching = false);
+    canvas.addEventListener('pointerdown', e => { isScratching = true; scratch(e); });
+    canvas.addEventListener('pointermove', scratch);
+    canvas.addEventListener('pointerup', () => isScratching = false);
+    canvas.addEventListener('pointerleave', () => isScratching = false);
+    // Prevent touch scrolling
+    canvas.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
   },
 
   async claimGift() {
@@ -304,17 +390,20 @@ const CustomerScreen = {
     const existing = this.state.activeTasks.find(t => t.type === type && (t.status === 'open' || t.status === 'in_progress'));
     if (existing) { Utils.toast(t('requestSent')); return; }
 
-    // Find and disable the button immediately
+    // Find and animate the button to waiting state immediately
     const btn = document.querySelector('[data-task-type="' + type + '"]');
     if (btn) {
       btn.disabled = true;
-      btn.style.opacity = '0.6';
-      const loader = btn.querySelector('.svc-loader');
-      const icon = btn.querySelector('.svc-icon');
-      const label = btn.querySelector('.svc-label');
-      if (loader) loader.classList.remove('hidden');
-      if (icon) icon.style.visibility = 'hidden';
-      if (label) label.style.visibility = 'hidden';
+      btn.style.opacity = '0.85';
+      btn.style.border = '1px solid var(--accent)';
+      btn.classList.add('service-btn-waiting');
+      // Replace content with live status text
+      const icon = CONFIG.taskTypes[type]?.icon || '📋';
+      btn.innerHTML = `
+        <span class="text-2xl mb-1">${icon}</span>
+        <div class="svc-status-text">⏳ ${t('requestSent')}</div>
+        <div class="svc-status-sub">הבקשה נשלחה</div>
+      `;
     }
 
     Utils.toast(t('requestSent'));
@@ -324,6 +413,8 @@ const CustomerScreen = {
     const tempTask = { type, status: 'open', _optimistic: true };
     this.state.activeTasks.push(tempTask);
     document.getElementById('active-tasks').innerHTML = this.renderActiveTasks();
+    // Re-render service buttons to reflect waiting state
+    this.refreshServiceButtons();
 
     try {
       const result = await sbInsert('tasks', { restaurant_id: this.state.restaurant.id, table_id: this.state.table.id, table_number: this.state.table.table_number, type, status: 'open', created_at: new Date().toISOString() });
@@ -336,17 +427,33 @@ const CustomerScreen = {
       if (btn) {
         btn.disabled = false;
         btn.style.opacity = '1';
-        const loader = btn.querySelector('.svc-loader');
-        const icon = btn.querySelector('.svc-icon');
-        const label = btn.querySelector('.svc-label');
-        if (loader) loader.classList.add('hidden');
-        if (icon) icon.style.visibility = 'visible';
-        if (label) label.style.visibility = 'visible';
+        btn.style.border = '1px solid var(--border)';
+        btn.classList.remove('service-btn-waiting');
       }
+      this.refreshServiceButtons();
       const ti = this.state.activeTasks.indexOf(tempTask);
       if (ti >= 0) this.state.activeTasks.splice(ti, 1);
       document.getElementById('active-tasks').innerHTML = this.renderActiveTasks();
     }
+  },
+
+  // Refresh service buttons to show live status
+  refreshServiceButtons() {
+    const grid = document.querySelector('#customer-root .grid.grid-cols-2');
+    if (!grid) return;
+    let serviceButtons = '';
+    const viewMode = this.state.settings?.customer_view_mode || 'full_menu';
+    const btnMap = {
+      full_menu: [['water','requestWater'],['bill','requestBill'],['waiter','callWaiter'],['wine_menu','wineMenu'],['dessert_menu','dessertMenu'],['special','specialRequest']],
+      service_only: [['water','requestWater'],['bill','requestBill'],['waiter','callWaiter'],['special','specialRequest']],
+      minimal: [['waiter','callWaiter'],['bill','requestBill']],
+    };
+    (btnMap[viewMode] || btnMap.minimal).forEach(([type,label]) => { serviceButtons += this.renderServiceButton(type, label); });
+    grid.innerHTML = serviceButtons;
+    // Re-attach click handlers for non-disabled buttons
+    grid.querySelectorAll('.service-btn:not([disabled])').forEach(btn => {
+      btn.addEventListener('click', () => this.requestService(btn.dataset.taskType));
+    });
   },
 
   // ─── Profile Modal ──────────────────────────────────────────────
@@ -605,6 +712,8 @@ const CustomerScreen = {
       this.state.activeTasks = (tasks || []).filter(t => t.status === 'open' || t.status === 'in_progress');
       const el = document.getElementById('active-tasks');
       if (el) el.innerHTML = this.renderActiveTasks();
+      // Refresh service buttons to show live status (waiting -> in_progress)
+      this.refreshServiceButtons();
     } catch(e) {}
   },
 };
