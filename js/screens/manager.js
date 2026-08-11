@@ -139,7 +139,7 @@ const ManagerScreen = {
                             <div class="font-semibold flex items-center gap-2">שולחן ${m.table_number} ${badge}</div>
                             <div class="text-xs opacity-90">${labels}</div>
                             <div class="text-xs opacity-75 mt-0.5">
-                              ${m.isClaimed ? `🤵 נלקח ע"י ${m.assignedWaiter||''}` : `⏱ ${Utils.formatDuration(elapsed)}`}
+                              ${m.isClaimed ? `🤵 נלקח ע"י ${m.assignedWaiter||''}` : `<span data-task-time="${m.earliestAt}">⏱ ${Utils.formatDuration(elapsed)}</span>`}
                               ${m.subTasks[0]?.special_note ? ` · 📝 ${Utils.escape(m.subTasks[0].special_note)}` : ''}
                             </div>
                           </div>
@@ -450,5 +450,5 @@ const ManagerScreen = {
 
   cleanup() { this.state.subscriptions.forEach(s => { try { s.unsubscribe(); } catch(e){} }); this.state.subscriptions = []; if (this.state.timer) clearInterval(this.state.timer); },
   setupRealtime() { this.cleanup(); const sub = sbSubscribePoll(this.state.restaurantId, async () => { await this.loadTasks(); await this.loadWaiters(); await this.loadShiftStats(); this.loadShiftOverview(); this.render(); }); this.state.subscriptions.push(sub); },
-  startTimer() { if (this.state.timer) clearInterval(this.state.timer); this.state.timer = setInterval(() => { if (this.state.tasks.length > 0 || this.state.shift) this.render(); }, 5000); },
+  startTimer() { if (this.state.timer) clearInterval(this.state.timer); this.state.timer = setInterval(() => { if (this.state.tasks.length === 0 && !this.state.shift) return; document.querySelectorAll('[data-task-time]').forEach(el => { const created = el.dataset.taskTime; const elapsed = Math.floor((Date.now() - new Date(created).getTime()) / 1000); if (!isNaN(elapsed)) el.textContent = '⏱ ' + Utils.formatDuration(elapsed); }); }, 5000); },
 };

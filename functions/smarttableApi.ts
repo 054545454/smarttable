@@ -456,7 +456,8 @@ Deno.serve(async (req) => {
         const open = tasks.filter(t => t.status === "open").length;
         const rt = tasks.filter(t => t.response_seconds != null).map(t => t.response_seconds);
         const avgR = rt.length > 0 ? Math.round(rt.reduce((a, b) => a + b, 0) / rt.length) : 0;
-        const byType = {}; tasks.forEach(t => { byType[t.type] = (byType[t.type] || 0) + 1; });
+        const byType = {}; tasks.forEach(t => { if (!byType[t.type]) byType[t.type] = { count: 0, completed: 0, cancelled: 0, open: 0, avgResponse: 0, responseTimes: [] }; byType[t.type].count++; if (t.status === 'done') byType[t.type].completed++; if (t.status === 'cancelled') byType[t.type].cancelled++; if (t.status === 'open') byType[t.type].open++; if (t.response_seconds != null) byType[t.type].responseTimes.push(t.response_seconds); });
+        Object.keys(byType).forEach(k => { const r = byType[k].responseTimes; byType[k].avgResponse = r.length > 0 ? Math.round(r.reduce((a,b)=>a+b,0)/r.length) : 0; delete byType[k].responseTimes; });
         const byTable = {}; tasks.forEach(t => { byTable[t.table_number] = (byTable[t.table_number] || 0) + 1; });
         const byHour = new Array(24).fill(0); tasks.forEach(t => { const h = new Date(t.created_at).getHours(); byHour[h] = (byHour[h] || 0) + 1; });
         const today = new Date().toISOString().split("T")[0];
