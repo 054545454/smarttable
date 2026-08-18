@@ -174,7 +174,8 @@ Deno.serve(async (req) => {
           const { password_hash, ...safe } = user; result = safe;
         } else if (auth.role === "manager") {
           if (!auth.restaurantId || !auth.pin) throw { status: 400, error: "Missing pin or restaurantId" };
-          const manager = await selOne(base44, "app_users", { pin: auth.pin, role: "manager", restaurant_id: auth.restaurantId, is_active: true });
+          const managerCandidates = await sel(base44, "app_users", { pin: auth.pin, role: "manager", restaurant_id: auth.restaurantId });
+          const manager = (managerCandidates || []).find(m => m.is_active === true || m.is_active === "true");
           if (!manager) throw { status: 401, error: "קוד שגוי" };
           const { password_hash, ...safe } = manager; result = safe;
         } else throw { status: 400, error: "Invalid auth role" };
@@ -426,8 +427,10 @@ Deno.serve(async (req) => {
         const restaurant = await getById(base44, "restaurants", table.restaurant_id);
         if (!restaurant) throw { status: 404, error: "מסעדה לא נמצאה" };
         const settings = await selOne(base44, "restaurant_settings", { restaurant_id: table.restaurant_id });
-        const gifts = await sel(base44, "gifts", { restaurant_id: table.restaurant_id, is_active: true });
-        const menuItems = await sel(base44, "menu_items", { restaurant_id: table.restaurant_id, is_active: true }, { sort: "sort_order" });
+        const allGifts = await sel(base44, "gifts", { restaurant_id: table.restaurant_id });
+        const gifts = (allGifts || []).filter(g => g.is_active === true || g.is_active === "true");
+        const allMenuItems = await sel(base44, "menu_items", { restaurant_id: table.restaurant_id }, { sort: "sort_order" });
+        const menuItems = (allMenuItems || []).filter(m => m.is_active === true || m.is_active === "true");
         let guestProfile = null;
         if (device_id) guestProfile = await selOne(base44, "guest_profiles", { restaurant_id: table.restaurant_id, guest_device_id: sanitize(device_id) });
         result = { table, restaurant, settings: settings || {}, gifts: gifts || [], menuItems: menuItems || [], guestProfile };
