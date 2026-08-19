@@ -172,6 +172,11 @@ const ManagerScreen = {
                 <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-gold after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
               </label>
             </div>
+
+            <!-- Close shift -->
+            <div class="card text-center animate-fade-in">
+              <button id="close-shift" class="btn-primary" style="background:#ef4444;color:white">${t('closeShift')}</button>
+            </div>
           ` : `
             <div class="card text-center animate-fade-in">
               <p style="color:var(--text-muted)" class="mb-4">אין משמרת פעילה</p>

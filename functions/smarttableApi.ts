@@ -440,7 +440,14 @@ Deno.serve(async (req) => {
       case "poll": {
         const rid = sanitize(body.filters.restaurant_id);
         if (!rid) throw { status: 400, error: "Missing restaurant_id" };
-        const tasks = await sel(base44, "tasks", { restaurant_id: rid, status: "open" }, { sort: "created_at" });
+        // Auto-cleanup: cancel open tasks older than 24 hours
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const allOpenTasks = await sel(base44, "tasks", { restaurant_id: rid, status: "open" }, { sort: "created_at" });
+        const staleTasks = (allOpenTasks || []).filter(t => t.created_at && t.created_at < twentyFourHoursAgo);
+        for (const st of staleTasks) {
+          try { await upd(base44, "tasks", st.id, { status: "cancelled", cancelled_at: new Date().toISOString(), cancelled_by: "auto-cleanup" }); } catch(e) {}
+        }
+        const tasks = (allOpenTasks || []).filter(t => !staleTasks.includes(t));
         const tables = await sel(base44, "restaurant_tables", { restaurant_id: rid }, { sort: "table_number" });
         const shifts = await sel(base44, "shifts", { restaurant_id: rid, ended_at: null }, { sort: "-started_at", limit: 1 });
         let waiters = [];
