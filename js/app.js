@@ -1,4 +1,4 @@
-// SmartTable — Main App Router
+// SmartTable 2.0 — Main App Router
 const App = {
   init() {
     this.handleRoute();
@@ -17,8 +17,10 @@ const App = {
     
     switch(route) {
       case '':
-      case 'home':
-        this.renderHome();
+        LandingScreen.init();
+        break;
+      case 'register':
+        RegisterScreen.init();
         break;
       case 'c':
         // Customer: #c/TABLE_TOKEN
@@ -48,25 +50,8 @@ const App = {
         this.renderScreenSelector();
         break;
       default:
-        this.renderHome();
+        LandingScreen.init();
     }
-  },
-
-  renderHome() {
-    document.getElementById('app').innerHTML = `
-      <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 to-gray-800 p-6">
-        <div class="text-center max-w-md">
-          <div class="text-6xl mb-4">🍽️</div>
-          <h1 class="text-4xl font-playfair text-gold mb-3">SmartTable</h1>
-          <p class="text-gray-400 mb-8">פלטפורמת ניהול מסעדות חכמה</p>
-          <div class="space-y-3">
-            <a href="#select" class="block btn-primary">בחר מסך</a>
-            <a href="#sa" class="block text-gray-500 text-sm hover:text-gold transition-colors">👑 Super Admin</a>
-          </div>
-          <p class="text-gray-500 text-xs mt-8">v${CONFIG.app.version}</p>
-        </div>
-      </div>
-    `;
   },
 
   renderScreenSelector(defaultType) {
@@ -105,12 +90,11 @@ const App = {
   },
 
   cleanupPrevious() {
-    // Clean up any running timers
     if (WaiterScreen.state?.timer) { clearInterval(WaiterScreen.state.timer); WaiterScreen.state.timer = null; }
     if (ManagerScreen.state?.timer) { clearInterval(ManagerScreen.state.timer); ManagerScreen.state.timer = null; }
     if (SuperAdminScreen.state?.timer) { clearInterval(SuperAdminScreen.state.timer); SuperAdminScreen.state.timer = null; }
+    if (CustomerScreen.state?.subscriptions) { CustomerScreen.state.subscriptions.forEach(s => { try { s.unsubscribe(); } catch(e){} }); }
   },
 };
 
-// Initialize app on DOM load
 document.addEventListener('DOMContentLoaded', () => App.init());
