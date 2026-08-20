@@ -111,12 +111,17 @@ const CustomerScreen = {
 
     // Service buttons
     let serviceButtons = '';
+    // Parse enabled_buttons from settings (JSON string array)
+    let enabledButtons = null;
+    try { enabledButtons = JSON.parse(settings?.enabled_buttons || 'null'); } catch(e) {}
+    const allButtons = ['water','bill','waiter','wine_menu','dessert_menu','special'];
+    const isEnabled = (type) => !enabledButtons || !Array.isArray(enabledButtons) || enabledButtons.includes(type);
     const btnMap = {
       full_menu: [['water','requestWater'],['bill','requestBill'],['waiter','callWaiter'],['wine_menu','wineMenu'],['dessert_menu','dessertMenu'],['special','specialRequest']],
       service_only: [['water','requestWater'],['bill','requestBill'],['waiter','callWaiter'],['special','specialRequest']],
       minimal: [['waiter','callWaiter'],['bill','requestBill']],
     };
-    (btnMap[viewMode] || btnMap.minimal).forEach(([type,label]) => { serviceButtons += this.renderServiceButton(type, label); });
+    (btnMap[viewMode] || btnMap.minimal).filter(([type]) => isEnabled(type)).forEach(([type,label]) => { serviceButtons += this.renderServiceButton(type, label); });
 
     // Menu section
     let menuSection = '';
@@ -443,12 +448,15 @@ const CustomerScreen = {
     if (!grid) return;
     let serviceButtons = '';
     const viewMode = this.state.settings?.customer_view_mode || 'full_menu';
+    let enabledButtons = null;
+    try { enabledButtons = JSON.parse(this.state.settings?.enabled_buttons || 'null'); } catch(e) {}
+    const isEnabled = (type) => !enabledButtons || !Array.isArray(enabledButtons) || enabledButtons.includes(type);
     const btnMap = {
       full_menu: [['water','requestWater'],['bill','requestBill'],['waiter','callWaiter'],['wine_menu','wineMenu'],['dessert_menu','dessertMenu'],['special','specialRequest']],
       service_only: [['water','requestWater'],['bill','requestBill'],['waiter','callWaiter'],['special','specialRequest']],
       minimal: [['waiter','callWaiter'],['bill','requestBill']],
     };
-    (btnMap[viewMode] || btnMap.minimal).forEach(([type,label]) => { serviceButtons += this.renderServiceButton(type, label); });
+    (btnMap[viewMode] || btnMap.minimal).filter(([type]) => isEnabled(type)).forEach(([type,label]) => { serviceButtons += this.renderServiceButton(type, label); });
     grid.innerHTML = serviceButtons;
     // Re-attach click handlers for non-disabled buttons
     grid.querySelectorAll('.service-btn:not([disabled])').forEach(btn => {

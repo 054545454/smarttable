@@ -51,6 +51,7 @@ const ManagerScreen = {
   async start() {
     await this.loadSettings(); await this.loadShift(); await this.loadTables();
     await this.loadWaiters(); await this.loadTasks(); await this.loadShiftStats(); this.loadShiftOverview();
+    KioskLock.init(this.state.restaurantId, "manager");
     this.render(); this.setupRealtime(); this.startTimer();
   },
 
@@ -286,7 +287,8 @@ const ManagerScreen = {
   },
 
   attachEvents() {
-    document.getElementById('manager-logout').addEventListener('click', () => { Auth.clearSession('manager'); this.cleanup(); window.location.hash = ''; });
+    document.getElementById('manager-logout').addEventListener('click', () => { Auth.clearSession('manager'); this.cleanup(); window.location.hash = ''; }
+    const kioskBtn = document.getElementById("manager-kiosk"); if (kioskBtn) kioskBtn.addEventListener("click", () => KioskLock.lock()););
     const os = document.getElementById('open-shift'); if (os) os.addEventListener('click', () => this.openShift());
     const cs = document.getElementById('close-shift'); if (cs) cs.addEventListener('click', () => this.closeShift());
     const bt = document.getElementById('busy-toggle'); if (bt) bt.addEventListener('change', () => this.toggleBusy(bt.checked));

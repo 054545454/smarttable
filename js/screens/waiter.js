@@ -40,7 +40,7 @@ const WaiterScreen = {
 
   async start() {
     try { const s = await sbSelect('restaurant_settings', { restaurant_id: this.state.restaurantId }, { single: true }); this.state.settings = s || {}; } catch(e) { this.state.settings = {}; }
-    await this.loadTasks(); this.render(); this.setupRealtime(); this.startTimer();
+    await this.loadTasks(); KioskLock.init(this.state.restaurantId, "waiter"); this.render(); this.setupRealtime(); this.startTimer();
     Utils.requestWakeLock(this);
   },
 
@@ -72,6 +72,7 @@ const WaiterScreen = {
               <p class="text-xs" style="color:var(--text-muted)">${t('taskQueue')} · ${mergedTasks.length} ${mergedTasks.length === 1 ? 'משימה' : 'משימות'}</p>
             </div>
             <div class="flex items-center gap-2">
+              <button id="waiter-kiosk" class="text-sm px-2 spring-scale" style="color:var(--text-muted)" title="נעילת Kiosk">🔒</button>
               <button id="waiter-fullscreen" class="text-sm px-2 spring-scale" style="color:var(--text-muted)">⤢</button>
               <button id="waiter-logout" class="text-sm px-3 py-1 rounded-lg spring-scale" style="color:var(--text-muted)">${t('logout')}</button>
             </div>
