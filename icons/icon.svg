@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#1A1A1A"/>
+  <circle cx="256" cy="256" r="140" fill="none" stroke="#C9A84C" stroke-width="3" opacity="0.3"/>
+  <!-- Fork -->
+  <g transform="translate(200, 130) scale(1)" fill="#C9A84C">
+    <rect x="8" y="0" width="3" height="40" rx="1.5"/>
+    <rect x="14" y="0" width="3" height="40" rx="1.5"/>
+    <rect x="20" y="0" width="3" height="40" rx="1.5"/>
+    <rect x="11.5" y="35" width="12" height="160" rx="3"/>
+  </g>
+  <!-- Knife -->
+  <g transform="translate(280, 130) scale(1)" fill="#C9A84C">
+    <path d="M 0 0 L 0 35 L 12 35 L 12 0 Q 12 -5 6 -5 Q 0 -5 0 0 Z" transform="translate(0, 5)"/>
+    <rect x="3" y="40" width="6" height="155" rx="2"/>
+  </g>
+  <!-- Plate accent -->
+  <circle cx="256" cy="256" r="80" fill="none" stroke="#C9A84C" stroke-width="2" opacity="0.15"/>
+  <!-- Bottom text dot accent -->
+  <circle cx="256" cy="420" r="4" fill="#C9A84C" opacity="0.5"/>
+</svg>

@@ -1,21 +1,26 @@
-// SmartTable Service Worker — PWA offline support (cache-first for static, network-first for HTML)
-const CACHE_NAME = 'smarttable-v3';
+// SmartTable Service Worker — PWA offline support
+const CACHE_NAME = 'smarttable-v20260823';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/css/styles.css?v=20260804',
-  '/js/config.js?v=20260804',
-  '/js/i18n.js?v=20260804',
-  '/js/supabase.js?v=20260804',
-  '/js/auth.js?v=20260804',
-  '/js/utils.js?v=20260804',
-  '/js/app.js?v=20260804',
-  '/js/screens/customer.js?v=20260804',
-  '/js/screens/waiter.js?v=20260804',
-  '/js/screens/manager.js?v=20260804',
-  '/js/screens/admin.js?v=20260804',
-  '/js/screens/superadmin.js?v=20260804',
+  '/css/styles.css?v=20260820',
+  '/js/config.js?v=20260820',
+  '/js/i18n.js?v=20260820',
+  '/js/supabase.js?v=20260820',
+  '/js/auth.js?v=20260820',
+  '/js/utils.js?v=20260820',
+  '/js/kiosk.js?v=20260820',
+  '/js/screens/landing.js?v=20260820',
+  '/js/screens/register.js?v=20260820',
+  '/js/screens/customer.js?v=20260820',
+  '/js/screens/waiter.js?v=20260820',
+  '/js/screens/manager.js?v=20260820',
+  '/js/screens/admin.js?v=20260820',
+  '/js/screens/superadmin.js?v=20260820',
+  '/js/app.js?v=20260820',
   '/manifest.json',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
 ];
 
 self.addEventListener('install', (e) => {
@@ -33,11 +38,9 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
-  // Don't cache API calls
   if (e.request.url.includes('/functions/') || e.request.url.includes('api.qrserver.com')) {
     return;
   }
-  // Network-first for HTML, cache-first for assets with version params
   if (e.request.destination === 'document' || e.request.url.endsWith('/') || e.request.url.includes('index.html')) {
     e.respondWith(
       fetch(e.request).then(response => {

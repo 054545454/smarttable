@@ -1,6 +1,12 @@
 # SmartTable — Static App Routing for Hostinger
 RewriteEngine On
 
+# Allow access to .well-known (for Digital Asset Links / TWA)
+<IfModule mod_rewrite.c>
+  RewriteRule ^\.well-known/ - [L]
+</IfModule>
+
+
 # SPA fallback — all routes serve index.html
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
