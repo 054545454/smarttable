@@ -156,11 +156,11 @@ const LandingScreen = {
         </section>
 
         <!-- CTA -->
-        <section id="register" class="py-20 bg-gradient-to-br from-amber-500 to-yellow-600">
+        <section id="cta" class="py-20 bg-gradient-to-br from-amber-500 to-yellow-600">
           <div class="max-w-3xl mx-auto px-6 text-center">
             <h2 class="font-playfair text-4xl font-bold text-white mb-4">מוכן להתחיל?</h2>
             <p class="text-amber-100 text-lg mb-8">הצטרף למסעדות שכבר עובדות חכם יותר עם SmartTable</p>
-            <a href="#/register" id="register-cta" class="inline-block px-10 py-4 rounded-full bg-white text-amber-600 font-bold text-lg hover:shadow-2xl transition-all hover:scale-105">
+            <a href="#register" id="register-cta" class="inline-block px-10 py-4 rounded-full bg-white text-amber-600 font-bold text-lg hover:shadow-2xl transition-all hover:scale-105">
               צור חשבון חינם →
             </a>
             <div class="mt-8 flex flex-wrap justify-center gap-6 text-amber-100 text-sm">
@@ -184,7 +184,7 @@ const LandingScreen = {
                 <a href="#features" class="hover:text-white transition">תכונות</a>
                 <a href="#pricing" class="hover:text-white transition">תמחור</a>
                 <a href="#demo" class="hover:text-white transition">דמו</a>
-                <a href="#/register" class="hover:text-white transition">הרשמה</a>
+                <a href="#register" class="hover:text-white transition">הרשמה</a>
               </div>
             </div>
             <div class="text-center text-gray-600 text-xs mt-8">© 2026 SmartTable. כל הזכויות שמורות.</div>
@@ -253,9 +253,9 @@ const LandingScreen = {
     }
 
     // Smooth scroll for anchor links
-    document.querySelectorAll('a[href^="#features"], a[href^="#pricing"], a[href^="#demo"], a[href^="#register"]').forEach(a => {
+    document.querySelectorAll('a[href^="#features"], a[href^="#pricing"], a[href^="#demo"]').forEach(a => {
       a.addEventListener('click', (e) => {
-        // Only prevent default for same-page anchors (not #/register which is a route)
+        // Only prevent default for same-page section anchors
         const href = a.getAttribute('href');
         if (href && !href.startsWith('#/')) {
           e.preventDefault();
