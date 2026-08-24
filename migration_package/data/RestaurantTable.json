@@ -1,0 +1,19 @@
+[
+  {"restaurant_id":"6a78eb278d2ebf0e493f8905","table_number":5,"qr_token":"qr_b0a5e896124e48c6bf13512333691d9c","is_open":false,"scratch_used":false,"pos_x":null,"pos_y":null,"notes":null,"opened_at":null,"guest_device_id":null},
+  {"restaurant_id":"6a78eb278d2ebf0e493f8905","table_number":4,"qr_token":"qr_50d1011b75fc44ed931832df8af2a5b1","is_open":false,"scratch_used":false,"pos_x":null,"pos_y":null,"notes":null,"opened_at":null,"guest_device_id":null},
+  {"restaurant_id":"6a78eb278d2ebf0e493f8905","table_number":3,"qr_token":"qr_bd29fe0a159e46788ebb504bc0c40121","is_open":false,"scratch_used":false,"pos_x":null,"pos_y":null,"notes":null,"opened_at":null,"guest_device_id":null},
+  {"restaurant_id":"6a78eb278d2ebf0e493f8905","table_number":2,"qr_token":"qr_1937f6a1bc834c95b2cb4d462e643388","is_open":false,"scratch_used":false,"pos_x":null,"pos_y":null,"notes":null,"opened_at":null,"guest_device_id":null},
+  {"restaurant_id":"6a78eb278d2ebf0e493f8905","table_number":1,"qr_token":"qr_cf490987afa74ea28877346461736351","is_open":false,"scratch_used":false,"pos_x":null,"pos_y":null,"notes":null,"opened_at":null,"guest_device_id":null},
+  {"restaurant_id":"6a78eaf43dc5f885acecbcfb","table_number":5,"qr_token":"qr_7644bae0d7ff4ab0865ae056d3dd97db","is_open":false,"scratch_used":false,"pos_x":null,"pos_y":null,"notes":null,"opened_at":null,"guest_device_id":null},
+  {"restaurant_id":"6a78eaf43dc5f885acecbcfb","table_number":4,"qr_token":"qr_9b626a995f1d4a30ace1884924f54825","is_open":false,"scratch_used":false,"pos_x":null,"pos_y":null,"notes":null,"opened_at":null,"guest_device_id":null},
+  {"restaurant_id":"6a78eaf43dc5f885acecbcfb","table_number":3,"qr_token":"qr_61051087ef4e496eb4036145204603e2","is_open":false,"scratch_used":false,"pos_x":null,"pos_y":null,"notes":null,"opened_at":null,"guest_device_id":null},
+  {"restaurant_id":"6a78eaf43dc5f885acecbcfb","table_number":2,"qr_token":"qr_60cd1d4862af4219b03621a976663247","is_open":false,"scratch_used":false,"pos_x":null,"pos_y":null,"notes":null,"opened_at":null,"guest_device_id":null},
+  {"restaurant_id":"6a78eaf43dc5f885acecbcfb","table_number":1,"qr_token":"qr_9a557484cc3441489f08ed431232c793","is_open":false,"scratch_used":false,"pos_x":null,"pos_y":null,"notes":null,"opened_at":null,"guest_device_id":null},
+  {"restaurant_id":"6a6c59439d192d6bfbf726e5","table_number":7,"qr_token":"qr_650a83770fbe4a7f9cc2f9d97301fa83","is_open":true,"scratch_used":false,"pos_x":76,"pos_y":214,"notes":null,"opened_at":null,"guest_device_id":null},
+  {"restaurant_id":"6a6c59439d192d6bfbf726e5","table_number":6,"qr_token":"qr_df7c947040c34c1d85a83498bff2b11a","is_open":false,"scratch_used":false,"pos_x":206,"pos_y":334,"notes":null,"opened_at":null,"guest_device_id":null},
+  {"restaurant_id":"6a6c59439d192d6bfbf726e5","table_number":4,"qr_token":"qr_CpjBXcDnrJ5Si6pZtu9A","is_open":true,"scratch_used":false,"pos_x":202,"pos_y":113,"notes":null,"opened_at":"2026-08-02T00:31:49.073Z","guest_device_id":null},
+  {"restaurant_id":"6a6c59439d192d6bfbf726e5","table_number":5,"qr_token":"qr_RgWxgWsBSxZDkbfDO5a2","is_open":true,"scratch_used":false,"pos_x":74,"pos_y":13,"notes":null,"opened_at":null,"guest_device_id":null},
+  {"restaurant_id":"6a6c59439d192d6bfbf726e5","table_number":2,"qr_token":"qr_07qaKjIieKJSCwHpJu9F","is_open":true,"scratch_used":false,"pos_x":210,"pos_y":217,"notes":null,"opened_at":"2026-08-03T09:17:46.333Z","guest_device_id":null},
+  {"restaurant_id":"6a6c59439d192d6bfbf726e5","table_number":1,"qr_token":"qr_lQxodXWUTtXhCI1GWT8r","is_open":true,"scratch_used":false,"pos_x":76,"pos_y":103,"notes":null,"opened_at":"2026-08-02T00:31:25.738Z","guest_device_id":null},
+  {"restaurant_id":"6a6c59439d192d6bfbf726e5","table_number":3,"qr_token":"qr_osYP3l0eb8wwGXGbOQUo","is_open":true,"scratch_used":false,"pos_x":220,"pos_y":5,"notes":null,"opened_at":"2026-08-03T09:17:53.292Z","guest_device_id":null}
+]

@@ -1,0 +1,6 @@
+[
+  {"restaurant_id":"6a78eb278d2ebf0e493f8905","theme":"luxury","primary_color":"#C9A84C","secondary_color":"#1A1A1A","font_family":"Playfair Display","default_language":"he","customer_view_mode":"full_menu","logo_url":null,"operating_hours":null,"escalation_green_minutes":2,"escalation_orange_minutes":4,"escalation_alert_minutes":5},
+  {"restaurant_id":"6a78eaf43dc5f885acecbcfb","theme":"luxury","primary_color":"#C9A84C","secondary_color":"#1A1A1A","font_family":"Playfair Display","default_language":"he","customer_view_mode":"full_menu","logo_url":null,"operating_hours":null,"escalation_green_minutes":2,"escalation_orange_minutes":4,"escalation_alert_minutes":5},
+  {"restaurant_id":"6a6caa6435b46394966786bd","theme":"luxury","primary_color":"#C9A84C","secondary_color":"#1A1A1A","font_family":"Playfair Display","default_language":"he","logo_url":null,"operating_hours":{"open":"10:00","close":"23:00"},"escalation_green_minutes":2,"escalation_orange_minutes":4,"escalation_alert_minutes":5},
+  {"restaurant_id":"6a6c59439d192d6bfbf726e5","theme":"luxury","primary_color":"#C9A84C","secondary_color":"#1A1A1A","font_family":"Playfair Display","default_language":"he","customer_view_mode":null,"logo_url":null,"operating_hours":{"open":"10:00","close":"23:00"},"escalation_green_minutes":2,"escalation_orange_minutes":4,"escalation_alert_minutes":5}
+]

@@ -1,0 +1,4 @@
+[
+  {"restaurant_id":"6a6c59439d192d6bfbf726e5","manager_id":"6a6e8f807a4c8d8d6119045b","manager_name":"מנהל משמרת","started_at":"2026-08-11T14:30:00.000Z","ended_at":null,"is_busy_mode":true},
+  {"restaurant_id":"6a6c59439d192d6bfbf726e5","manager_id":"6a6e8f807a4c8d8d6119045b","manager_name":"מנהל משמרת","started_at":null,"ended_at":null,"is_busy_mode":false}
+]

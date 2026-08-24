@@ -1,0 +1,8 @@
+[
+  {"id":"6a78eb27ad38b2287a229f18","username":"52525252","full_name":"אוריאל בדיקה","role":"admin","restaurant_id":"6a78eb278d2ebf0e493f8905","password_hash":"h:6f49e403a91a45daacc112275abfd2c7:de90f64192df45c09456ee5ded0f42f2de58dbf4169dc82665f6aa9e170cc83b","is_active":true,"must_change_password":false,"pin":null},
+  {"id":"6a78eaf40d27e15230430e23","username":"51515151","full_name":"אוריאל בדיקה","role":"admin","restaurant_id":"6a78eaf43dc5f885acecbcfb","password_hash":"h:a7152a89bf484d77881afc8b987bedd2:cf04b60e86c43b1dc3fd227c4fbb0407c1f8e2d850581fbfc579852cde953f85","is_active":true,"must_change_password":true,"pin":null},
+  {"id":"6a6e8f807a4c8d8d6119045b","username":"manager","full_name":"מנהל משמרת","role":"manager","restaurant_id":"6a6c59439d192d6bfbf726e5","password_hash":null,"is_active":true,"must_change_password":null,"pin":"9648"},
+  {"id":"6a6caa640d1dcb7788171970","username":"test@test.com","full_name":"בדיקה","role":"admin","restaurant_id":"6a6caa6435b46394966786bd","password_hash":"Dx3JNeFNLTmS","is_active":true,"must_change_password":true,"pin":null},
+  {"id":"6a6c594a9d192d6bfbf726e8","username":"superadmin","full_name":"Super Admin","role":"super_admin","restaurant_id":null,"password_hash":"h:6b865d797d5c4969b8a2d49e429dbb86:bc104488e2302028f27452aed2fed9e182d6671542e4b31a0c96428cbe79c91d","is_active":true,"must_change_password":null,"pin":null},
+  {"id":"6a6c59469d192d6bfbf726e6","username":"uriel","full_name":"Uriel Admin","role":"admin","restaurant_id":"6a6c59439d192d6bfbf726e5","password_hash":"h:122a8dc66a764105af8706bf8f722482:c090ce7178b193ba22fbb7aa3c2946a0149f197b8a08fd39f8b9e4e6b11d5340","is_active":true,"must_change_password":null,"pin":null}
+]
