@@ -1,8 +1,8 @@
 // SmartTable Configuration
 const CONFIG = {
   api: {
-    url: 'https://solas-48957418.base44.app/functions/smarttableApi',
-    registerUrl: 'https://solas-48957418.base44.app/functions/smarttableRegister',
+    url: 'https://veda-0596d020.base44.app/functions/smarttableApi',
+    registerUrl: 'https://veda-0596d020.base44.app/functions/smarttableRegister',
   },
   app: {
     name: 'SmartTable',
