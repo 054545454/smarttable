@@ -146,7 +146,7 @@ const LandingScreen = {
                 <h3 class="text-white font-semibold mb-1 group-hover:text-amber-400 transition">מסך הלקוח</h3>
                 <p class="text-gray-500 text-sm">סרוק כאורח וראה את התפריט, כפתורי השירות ומתנת הגרידה</p>
               </a>
-              <a href="#w/6a6c59439d192d6bfbf726e5" class="bg-gray-800 hover:bg-gray-700 rounded-2xl p-6 transition-all border border-gray-700 hover:border-amber-500 group">
+              <a href="#w/6a8ca8ec905c8710caadb408" class="bg-gray-800 hover:bg-gray-700 rounded-2xl p-6 transition-all border border-gray-700 hover:border-amber-500 group">
                 <div class="text-4xl mb-3">🤵</div>
                 <h3 class="text-white font-semibold mb-1 group-hover:text-amber-400 transition">מסך המלצר</h3>
                 <p class="text-gray-500 text-sm">ראה את לוח המשימות עם קידוד הצבעים והאסקלציה</p>
