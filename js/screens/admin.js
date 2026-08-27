@@ -492,10 +492,90 @@ const AdminScreen = {
           </div>
         </div>
 
+        <!-- Device Pairing -->
+        <div class="card">
+          <h3 class="font-semibold text-gray-700 mb-3">🔗 חיבור מכשירים</h3>
+          <p class="text-sm text-gray-500 mb-3">צור קוד שיווך לטאבלטים במסעדה. הקוד תקף ל-10 דקות.</p>
+          <div class="flex gap-3 items-center">
+            <button id="gen-pairing-code" class="btn-primary text-sm">🔑 צור קוד שיווך</button>
+            <div id="pairing-code-display" class="hidden flex-1">
+              <div class="bg-amber-50 border-2 border-amber-300 rounded-xl p-4 text-center">
+                <div class="text-xs text-gray-500 mb-1">קוד שיווך (תקף 10 דקות):</div>
+                <div class="text-3xl font-bold tracking-[0.5rem] text-amber-700" id="pairing-code-value"></div>
+                <div class="text-xs text-gray-400 mt-2">הזן קוד זה במכשיר או שתף: <a id="pairing-link" href="#" class="text-amber-600 underline">קישור ישיר</a></div>
+              </div>
+            </div>
+          </div>
+          <div id="active-devices" class="mt-4"></div>
+        </div>
+
         <button id="save-settings" class="btn-primary w-full">שמור הגדרות</button>
         <p id="settings-msg" class="text-center text-sm hidden"></p>
       </div>
     `;
+  },
+
+  // --- PAIRING CODE ---
+  async generatePairingCode() {
+    const btn = document.getElementById('gen-pairing-code');
+    if (btn) { btn.textContent = 'מייצר...'; btn.classList.add('opacity-50', 'pointer-events-none'); }
+    try {
+      const res = await fetch(CONFIG.api.registerUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'generatePairingCode', data: { restaurant_id: this.state.restaurantId } })
+      });
+      const result = await res.json();
+      if (result.error) throw new Error(result.error);
+
+      const display = document.getElementById('pairing-code-display');
+      const valueEl = document.getElementById('pairing-code-value');
+      const linkEl = document.getElementById('pairing-link');
+      if (display && valueEl) {
+        display.classList.remove('hidden');
+        valueEl.textContent = result.pairing_code;
+        if (linkEl) linkEl.href = `#pair/${result.pairing_code}`;
+      }
+      Utils.toast('קוד שיווך נוצר!');
+      // Auto-refresh after 10 minutes
+      setTimeout(() => {
+        const d = document.getElementById('pairing-code-display');
+        if (d) { d.classList.add('hidden'); }
+        if (btn) { btn.textContent = '🔑 צור קוד שיווך'; btn.classList.remove('opacity-50', 'pointer-events-none'); }
+      }, 10 * 60 * 1000);
+    } catch (e) {
+      Utils.toast(e.message || 'שגיאה ביצירת קוד');
+    }
+    if (btn) { btn.textContent = '🔑 צור קוד שיווך'; btn.classList.remove('opacity-50', 'pointer-events-none'); }
+  },
+
+  async loadActiveDevices() {
+    const container = document.getElementById('active-devices');
+    if (!container) return;
+    try {
+      const res = await fetch(CONFIG.api.registerUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'getDeviceSessions', filters: { restaurant_id: this.state.restaurantId } })
+      });
+      const devices = await res.json();
+      if (!Array.isArray(devices) || devices.length === 0) return;
+      
+      container.innerHTML = `
+        <div class="mt-3 pt-3 border-t border-gray-200">
+          <div class="text-sm font-medium text-gray-600 mb-2">📱 מכשירים מחוברים (${devices.length})</div>
+          ${devices.map(d => `
+            <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 mb-1">
+              <div>
+                <span class="text-sm">${d.screen_type === 'waiter' ? '🤵' : '👨‍💼'} ${d.screen_type === 'waiter' ? 'מלצר' : 'מנהל'}</span>
+                <span class="text-xs text-gray-400 mr-2">${d.device_name || d.device_id?.substring(0, 12) || ''}</span>
+              </div>
+              <span class="text-xs text-green-600 font-medium">🔒 נעול</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    } catch (e) {}
   },
 
   // --- MENU MANAGEMENT ---
@@ -797,6 +877,13 @@ const AdminScreen = {
     if (logoInput) logoInput.addEventListener('change', (e) => this.handleLogoUpload(e));
     const logoRemove = document.getElementById('logo-remove-btn');
     if (logoRemove) logoRemove.addEventListener('click', () => this.removeLogo());
+    
+    // Pairing code generation
+    const genPairBtn = document.getElementById('gen-pairing-code');
+    if (genPairBtn) genPairBtn.addEventListener('click', () => this.generatePairingCode());
+    
+    // Load active devices
+    this.loadActiveDevices();
     
     // Theme selection
     document.querySelectorAll('[data-theme]').forEach(btn => {

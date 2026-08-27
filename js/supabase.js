@@ -1,7 +1,7 @@
 // SmartTable API Client — Base44 Backend
 // Enterprise: Offline Queue + Optimistic UI + New API Actions
 
-const API_URL = 'https://solas-48957418.base44.app/functions/smarttableApi';
+const API_URL = CONFIG.api.url; // Dynamic — sourced from config.js
 
 // ─── Offline Queue ──────────────────────────────────────────────
 const offlineQueue = {

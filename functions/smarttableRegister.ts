@@ -44,6 +44,10 @@ function utf8ToBase64(str) {
   return btoa(binary);
 }
 
+function generatePairingCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: {
@@ -68,6 +72,7 @@ Deno.serve(async (req) => {
     let result;
 
     switch (action) {
+      // ─── REGISTRATION ─────────────────────────────────────
       case "register": {
         const d = sanitizeObject(body.data);
         const email = (d.email || "").toLowerCase().trim();
@@ -139,7 +144,7 @@ Deno.serve(async (req) => {
         let emailSent = false;
         try {
           const { accessToken } = await base44.asServiceRole.connectors.getConnection("gmail");
-          const loginUrl = `https://violet-dunlin-978279.hostingersite.com#/a/${restaurant.id}`;
+          const loginUrl = `https://violet-dunlin-978279.hostingersite.com#a/${restaurant.id}`;
           const subject = `=?utf-8?B?${utf8ToBase64("ברוכים הבאים ל-SmartTable! פרטי הכניסה שלך")}?=`;
           const htmlBody = [
             '<div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">',
@@ -176,6 +181,102 @@ Deno.serve(async (req) => {
         break;
       }
 
+      // ─── DEVICE PAIRING ────────────────────────────────────
+      case "generatePairingCode": {
+        const d = sanitizeObject(body.data);
+        if (!d.restaurant_id) throw { status: 400, error: "Missing restaurant_id" };
+        const code = generatePairingCode();
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 min expiry
+
+        // Store code in a DeviceSession with pairing_code
+        const existing = await base44.asServiceRole.entities.DeviceSession.filter({
+          restaurant_id: d.restaurant_id, device_id: "pairing_pending"
+        });
+        if (existing && existing.length > 0) {
+          await base44.asServiceRole.entities.DeviceSession.update(existing[0].id, {
+            pairing_code: code, pairing_expires_at: expiresAt, screen_type: d.screen_type || ""
+          });
+        } else {
+          await base44.asServiceRole.entities.DeviceSession.create({
+            restaurant_id: d.restaurant_id, device_id: "pairing_pending",
+            pairing_code: code, pairing_expires_at: expiresAt,
+            screen_type: d.screen_type || "", is_locked: false
+          });
+        }
+
+        result = { success: true, pairing_code: code, expires_at: expiresAt };
+        break;
+      }
+
+      case "validatePairingCode": {
+        const d = sanitizeObject(body.data);
+        const code = d.pairing_code || "";
+        if (!code || code.length !== 6) throw { status: 400, error: "קוד לא תקין" };
+
+        const allSessions = await base44.asServiceRole.entities.DeviceSession.filter({
+          pairing_code: code, device_id: "pairing_pending"
+        });
+        if (!allSessions || allSessions.length === 0) throw { status: 404, error: "קוד שיווך לא נמצא או שפג תוקפו" };
+
+        const session = allSessions[0];
+        if (session.pairing_expires_at && new Date(session.pairing_expires_at) < new Date()) {
+          throw { status: 410, error: "קוד השיווך פג תוקף. בקש קוד חדש מהמנהל." };
+        }
+
+        // Get restaurant info
+        const restaurants = await base44.asServiceRole.entities.Restaurant.filter({ id: session.restaurant_id });
+        if (!restaurants || restaurants.length === 0) throw { status: 404, error: "מסעדה לא נמצאה" };
+        const restaurant = restaurants[0];
+
+        result = {
+          success: true,
+          restaurant_id: restaurant.id,
+          restaurant_name: restaurant.name,
+          screen_type: session.screen_type || ""
+        };
+        break;
+      }
+
+      case "pairDevice": {
+        const d = sanitizeObject(body.data);
+        if (!d.restaurant_id || !d.device_id || !d.screen_type) throw { status: 400, error: "Missing required fields" };
+        const code = d.pairing_code || "";
+
+        // If code provided, validate and consume it
+        if (code) {
+          const codeSessions = await base44.asServiceRole.entities.DeviceSession.filter({
+            pairing_code: code, device_id: "pairing_pending", restaurant_id: d.restaurant_id
+          });
+          if (codeSessions && codeSessions.length > 0) {
+            if (codeSessions[0].pairing_expires_at && new Date(codeSessions[0].pairing_expires_at) < new Date()) {
+              throw { status: 410, error: "קוד השיווך פג תוקף" };
+            }
+            // Delete the pairing session (consumed)
+            await base44.asServiceRole.entities.DeviceSession.delete(codeSessions[0].id);
+          }
+        }
+
+        // Create or update device session
+        const existing = await base44.asServiceRole.entities.DeviceSession.filter({
+          restaurant_id: d.restaurant_id, device_id: d.device_id
+        });
+        if (existing && existing.length > 0) {
+          result = await base44.asServiceRole.entities.DeviceSession.update(existing[0].id, {
+            screen_type: d.screen_type, paired_at: new Date().toISOString(),
+            is_locked: true, locked_at: new Date().toISOString(),
+            device_name: d.device_name || ""
+          });
+        } else {
+          result = await base44.asServiceRole.entities.DeviceSession.create({
+            restaurant_id: d.restaurant_id, device_id: d.device_id,
+            screen_type: d.screen_type, device_name: d.device_name || "",
+            paired_at: new Date().toISOString(), is_locked: true, locked_at: new Date().toISOString()
+          });
+        }
+        break;
+      }
+
+      // ─── KIOSK LOCK/UNLOCK ─────────────────────────────────
       case "lockDevice": {
         const d = sanitizeObject(body.data);
         if (!d.restaurant_id || !d.device_id || !d.screen_type) throw { status: 400, error: "Missing required fields" };
@@ -218,6 +319,54 @@ Deno.serve(async (req) => {
         });
         const session = sessions && sessions.length > 0 ? sessions[0] : null;
         result = { is_locked: session?.is_locked || false, screen_type: session?.screen_type || null };
+        break;
+      }
+
+      case "getDeviceSessions": {
+        const d = sanitizeObject(body.filters || {});
+        const sessions = await base44.asServiceRole.entities.DeviceSession.filter({
+          restaurant_id: d.restaurant_id
+        });
+        result = sessions.filter(s => s.device_id !== "pairing_pending" && s.is_locked);
+        break;
+      }
+
+      // ─── PAYMENT GATEWAY STUB ──────────────────────────────
+      case "initPayment": {
+        const d = sanitizeObject(body.data);
+        // Payment stub for future Stripe/Tranzila integration
+        // Returns mock checkout URL — real integration will replace this
+        const restaurantId = d.restaurant_id;
+        const plan = d.plan || "tier_15";
+        const fee = d.fee || 99;
+
+        result = {
+          success: true,
+          payment_id: `pay_${crypto.randomUUID().replace(/-/g, "").substring(0, 16)}`,
+          checkout_url: null, // Will be populated with Stripe/Tranzila URL
+          plan, fee,
+          message: "Payment gateway adapter ready. Stripe/Tranzila integration pending.",
+          // Future: return real checkout URL from Stripe/Tranzila
+          // checkout_url: `https://checkout.stripe.com/...`
+        };
+        break;
+      }
+
+      case "upgradePlan": {
+        const d = sanitizeObject(body.data);
+        if (!d.restaurant_id || !d.plan) throw { status: 400, error: "Missing required fields" };
+
+        const planFees = { free: 0, tier_15: 99, tier_30: 143, tier_unlimited: 199 };
+        const fee = planFees[d.plan] || 0;
+
+        await base44.asServiceRole.entities.Restaurant.update(d.restaurant_id, {
+          subscription_plan: d.plan,
+          monthly_fee: fee,
+          billing_status: fee > 0 ? "active" : "trial",
+          payment_gateway_id: d.payment_gateway_id || null,
+        });
+
+        result = { success: true, plan: d.plan, fee };
         break;
       }
 

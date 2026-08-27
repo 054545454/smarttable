@@ -6,13 +6,23 @@ const KioskLock = {
     this.state.restaurantId = restaurantId;
     this.state.screenType = screenType;
     this.state.deviceId = this.getDeviceId();
-    
-    const stored = localStorage.getItem('kiosk_lock_' + restaurantId + '_' + screenType);
-    if (stored === 'true') {
-      this.state.locked = true;
-      this.activate();
+    this.state.locked = false;
+
+    // Check localStorage for kiosk state
+    const stored = localStorage.getItem('st_kiosk_device');
+    if (stored) {
+      try {
+        const kiosk = JSON.parse(stored);
+        if (kiosk.restaurant_id === restaurantId && kiosk.screen_type === screenType) {
+          this.state.locked = true;
+        }
+      } catch (e) {}
     }
-    
+
+    // Also check server-side kiosk status
+    this.checkServerKioskStatus();
+
+    // Setup unlock trigger (5 taps in top-left corner)
     document.addEventListener('click', (e) => {
       if (!this.state.locked) return;
       if (e.clientX < 50 && e.clientY < 50) {
@@ -25,12 +35,35 @@ const KioskLock = {
         }
       }
     });
+
+    if (this.state.locked) {
+      this.activate();
+    }
   },
 
   getDeviceId() {
     let id = localStorage.getItem('st_device_id');
     if (!id) { id = 'dev_' + Math.random().toString(36).substr(2, 12); localStorage.setItem('st_device_id', id); }
     return id;
+  },
+
+  async checkServerKioskStatus() {
+    try {
+      const res = await fetch(CONFIG.api.registerUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'getKioskStatus',
+          filters: { restaurant_id: this.state.restaurantId, device_id: this.state.deviceId }
+        })
+      });
+      const result = await res.json();
+      if (result.is_locked && !this.state.locked) {
+        this.state.locked = true;
+        this.state.screenType = result.screen_type || this.state.screenType;
+        this.activate();
+      }
+    } catch (e) {}
   },
 
   async lock() {
@@ -44,13 +77,22 @@ const KioskLock = {
         })
       });
     } catch(e) {}
-    localStorage.setItem('kiosk_lock_' + this.state.restaurantId + '_' + this.state.screenType, 'true');
+    
+    // Save to localStorage for persistence across reboots
+    localStorage.setItem('st_kiosk_device', JSON.stringify({
+      restaurant_id: this.state.restaurantId,
+      device_id: this.state.deviceId,
+      screen_type: this.state.screenType,
+      paired_at: Date.now()
+    }));
+    
     this.state.locked = true;
     this.activate();
     Utils.toast('🔒 מסך נעול — Kiosk Mode');
   },
 
   activate() {
+    // Prevent navigation away
     window.addEventListener('hashchange', this.preventNavigation, true);
     this.requestFullscreen();
     this.showLockIndicator();
@@ -87,7 +129,8 @@ const KioskLock = {
     box.style.cssText = 'background:#fff;border-radius:16px;padding:24px;max-width:320px;width:90%;text-align:center';
     box.innerHTML = '<div style="font-size:2rem;margin-bottom:8px">🔒</div>' +
       '<h3 style="font-weight:600;margin-bottom:16px;color:#1a1a1a">ביטול נעילת Kiosk</h3>' +
-      '<input type="password" id="kiosk-pin-input" placeholder="הזן קוד PIN" maxlength="4" ' +
+      '<p style="color:#888;font-size:13px;margin-bottom:16px">הזן את קוד ה-PIN (4 ספרות) של המסעדה</p>' +
+      '<input type="password" id="kiosk-pin-input" placeholder="••••" maxlength="4" ' +
       'style="width:100%;text-align:center;font-size:1.5rem;letter-spacing:0.5rem;padding:12px;border:2px solid #e5e7eb;border-radius:12px;outline:none;margin-bottom:16px" autofocus>' +
       '<div style="display:flex;gap:8px">' +
       '<button id="kiosk-cancel" style="flex:1;padding:10px;border-radius:8px;background:#f3f4f6;color:#6b7280;font-weight:600;border:0;cursor:pointer">ביטול</button>' +
@@ -120,7 +163,7 @@ const KioskLock = {
           pinInput.value = '';
           pinInput.placeholder = 'קוד שגוי';
           pinInput.style.borderColor = '#ef4444';
-          setTimeout(() => { pinInput.placeholder = 'הזן קוד PIN'; pinInput.style.borderColor = '#e5e7eb'; }, 2000);
+          setTimeout(() => { pinInput.placeholder = '••••'; pinInput.style.borderColor = '#e5e7eb'; }, 2000);
         }
       } catch(e) {
         Utils.toast('שגיאה בביטול הנעילה');
@@ -131,7 +174,8 @@ const KioskLock = {
   },
 
   unlock() {
-    localStorage.removeItem('kiosk_lock_' + this.state.restaurantId + '_' + this.state.screenType);
+    // Clear localStorage
+    localStorage.removeItem('st_kiosk_device');
     this.state.locked = false;
     window.removeEventListener('hashchange', this.preventNavigation, true);
     const indicator = document.getElementById('kiosk-indicator');
@@ -139,6 +183,8 @@ const KioskLock = {
     const dialog = document.getElementById('kiosk-unlock-dialog');
     if (dialog) dialog.remove();
     Utils.toast('🔓 המסך שוחרר');
+    // Navigate to home
+    window.location.hash = '';
   },
 
   requestFullscreen() {
