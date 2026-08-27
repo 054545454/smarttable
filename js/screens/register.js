@@ -3,6 +3,7 @@ const RegisterScreen = {
   state: { step: 1, tableCount: 5, loading: false },
 
   init() {
+    this.state = { step: 1, tableCount: 5, loading: false, restaurantId: null };
     this.render();
     this.attachEvents();
     window.scrollTo(0, 0);
@@ -14,7 +15,7 @@ const RegisterScreen = {
       <div class="min-h-screen bg-gradient-to-br from-gray-900 to-black flex items-center justify-center p-6">
         <div class="w-full max-w-lg">
           <!-- Back -->
-          <a href="#/" class="text-gray-400 hover:text-white text-sm mb-6 inline-block">← חזור לדף הבית</a>
+          <a href="#" class="text-gray-400 hover:text-white text-sm mb-6 inline-block">← חזור לדף הבית</a>
           
           <div class="bg-white rounded-3xl shadow-2xl overflow-hidden">
             <!-- Header -->
@@ -144,12 +145,13 @@ const RegisterScreen = {
         <p class="text-gray-500 mb-6">חשבון SmartTable שלך נוצר בהצלחה.<br>שלחנו אימייל עם פרטי הכניסה וההגדרות.</p>
         
         <div class="bg-gray-50 rounded-2xl p-6 mb-6 text-right">
-          <div class="text-sm text-gray-500 mb-1">קישור לכניסה:</div>
+          <div class="text-sm text-gray-500 mb-1">קישור לכניסה למערכת:</div>
           <a id="reg-login-link" href="#" class="text-amber-600 font-semibold break-all">מעתיק קישור...</a>
+          <button id="reg-copy-link" class="mt-3 px-4 py-2 rounded-lg bg-gray-200 text-gray-700 text-sm font-medium hover:bg-gray-300 transition">📋 העתק קישור</button>
         </div>
         
         <button id="reg-go-login" class="btn-primary w-full">כניסה למערכת →</button>
-        <a href="#/" class="block text-gray-400 text-sm mt-4">חזור לדף הבית</a>
+        <a href="#" class="block text-gray-400 text-sm mt-4">חזור לדף הבית</a>
       </div>
     `;
   },
@@ -202,6 +204,17 @@ const RegisterScreen = {
       if (e.target.id === 'reg-go-login') {
         const link = document.getElementById('reg-login-link');
         if (link && link.dataset.url) window.location.hash = link.dataset.url;
+      }
+      if (e.target.id === 'reg-copy-link') {
+        const link = document.getElementById('reg-login-link');
+        if (link && link.dataset.url) {
+          const fullUrl = 'https://violet-dunlin-978279.hostingersite.com/' + link.dataset.url;
+          navigator.clipboard?.writeText(fullUrl).then(() => {
+            Utils.toast('קישור הועתק!');
+            e.target.textContent = '✅ הועתק';
+            setTimeout(() => { e.target.textContent = '📋 העתק קישור'; }, 2000);
+          }).catch(() => Utils.toast('לא הצלחתי להעתיק — העתק ידנית'));
+        }
       }
     });
 
@@ -273,7 +286,7 @@ const RegisterScreen = {
       // Set login link
       const link = document.getElementById('reg-login-link');
       if (link) {
-        const url = `#/a/${result.restaurant_id}`;
+        const url = `#a/${result.restaurant_id}`;
         link.href = url;
         link.dataset.url = url;
         link.textContent = `https://violet-dunlin-978279.hostingersite.com${url}`;
