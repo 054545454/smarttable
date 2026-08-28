@@ -48,7 +48,7 @@ const App = {
     
     switch(route) {
       case '':
-        LandingScreen.init();
+        LandingScreen.init(); document.title = "DEBUG: LANDING INIT CALLED";
         break;
       case 'register':
         // Legacy: redirect to landing with modal
@@ -62,7 +62,7 @@ const App = {
         break;
       case 'w':
         // Waiter: #w/RESTAURANT_ID
-        if (param) WaiterScreen.init(param);
+        if (param) WaiterScreen.init(param); document.title = "DEBUG: WAITER INIT CALLED";
         else this.renderScreenSelector('waiter');
         break;
       case 'm':
