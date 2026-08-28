@@ -39,6 +39,7 @@ const App = {
   handleRoute() {
     const hash = window.location.hash.slice(1);
     const [route, param] = hash.split('/');
+    document.title = "DEBUG: hash=" + hash + " route=" + route + " param=" + param;
     
     const app = document.getElementById('app');
     
