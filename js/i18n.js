@@ -391,3 +391,6 @@ const I18n = {
     ).join('');
   }
 };
+
+// Global alias for convenience
+var t = I18n.t.bind(I18n);

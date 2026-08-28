@@ -39,7 +39,6 @@ const App = {
   handleRoute() {
     const hash = window.location.hash.slice(1);
     const [route, param] = hash.split('/');
-    document.title = "DEBUG: hash=" + hash + " route=" + route + " param=" + param;
     
     const app = document.getElementById('app');
     
@@ -48,7 +47,7 @@ const App = {
     
     switch(route) {
       case '':
-        LandingScreen.init(); document.title = "DEBUG: LANDING INIT CALLED";
+        LandingScreen.init();
         break;
       case 'register':
         // Legacy: redirect to landing with modal
@@ -62,7 +61,7 @@ const App = {
         break;
       case 'w':
         // Waiter: #w/RESTAURANT_ID
-        if (param) WaiterScreen.init(param); document.title = "DEBUG: WAITER INIT CALLED";
+        if (param) WaiterScreen.init(param);
         else this.renderScreenSelector('waiter');
         break;
       case 'm':
@@ -233,38 +232,50 @@ const App = {
             <div>
               <label class="text-sm text-gray-600 mb-1 block">סוג מסך</label>
               <select id="screen-type" class="input-field">
-                <option value="admin" ${defaultType === 'admin' ? 'selected' : ''}>🏢 מנהל / בעלים</option>
-                <option value="manager" ${defaultType === 'manager' ? 'selected' : ''}>👨‍💼 מנהל משמרת</option>
                 <option value="waiter" ${defaultType === 'waiter' ? 'selected' : ''}>🤵 מלצר</option>
+                <option value="manager" ${defaultType === 'manager' ? 'selected' : ''}>👨‍💼 מנהל משמרת</option>
+                <option value="admin" ${defaultType === 'admin' ? 'selected' : ''}>⚙️ מנהל מסעדה</option>
               </select>
             </div>
             <div>
               <label class="text-sm text-gray-600 mb-1 block">מזהה מסעדה</label>
-              <input type="text" id="restaurant-id-input" class="input-field" placeholder="UUID של המסעדה">
+              <input type="text" id="restaurant-id-input" class="input-field" placeholder="הזן מזהה מסעדה">
             </div>
-            <button id="go-to-screen" class="btn-primary w-full">המשך</button>
+            <button id="screen-selector-go" class="btn-primary w-full">המשך</button>
           </div>
-          <a href="#" class="block text-center text-sm text-gray-400 mt-4">← חזור</a>
         </div>
       </div>
     `;
-    
-    document.getElementById('go-to-screen').addEventListener('click', () => {
+    document.getElementById('screen-selector-go').addEventListener('click', () => {
       const type = document.getElementById('screen-type').value;
       const rid = document.getElementById('restaurant-id-input').value.trim();
-      if (!rid) { Utils.toast('הזן מזהה מסעדה'); return; }
-      
-      const routeMap = { admin: 'a', manager: 'm', waiter: 'w' };
+      if (!rid) { Utils.toast('נא להזין מזהה מסעדה'); return; }
+      const routeMap = { waiter: 'w', manager: 'm', admin: 'a' };
       window.location.hash = `${routeMap[type]}/${rid}`;
     });
   },
 
   cleanupPrevious() {
-    if (WaiterScreen.state?.timer) { clearInterval(WaiterScreen.state.timer); WaiterScreen.state.timer = null; }
-    if (ManagerScreen.state?.timer) { clearInterval(ManagerScreen.state.timer); ManagerScreen.state.timer = null; }
-    if (SuperAdminScreen.state?.timer) { clearInterval(SuperAdminScreen.state.timer); SuperAdminScreen.state.timer = null; }
-    if (CustomerScreen.state?.subscriptions) { CustomerScreen.state.subscriptions.forEach(s => { try { s.unsubscribe(); } catch(e){} }); }
-  },
+    // Clean up waiter screen subscriptions
+    if (typeof WaiterScreen !== 'undefined' && WaiterScreen.state && WaiterScreen.state.subscriptions) {
+      WaiterScreen.state.subscriptions.forEach(s => { try { s.unsubscribe(); } catch(e){} });
+      WaiterScreen.state.subscriptions = [];
+    }
+    if (typeof WaiterScreen !== 'undefined' && WaiterScreen.state && WaiterScreen.state.timer) {
+      clearInterval(WaiterScreen.state.timer);
+      WaiterScreen.state.timer = null;
+    }
+    // Clean up customer screen subscriptions
+    if (typeof CustomerScreen !== 'undefined' && CustomerScreen.state && CustomerScreen.state.subscriptions) {
+      CustomerScreen.state.subscriptions.forEach(s => { try { s.unsubscribe(); } catch(e){} });
+      CustomerScreen.state.subscriptions = [];
+    }
+    // Clean up manager screen subscriptions
+    if (typeof ManagerScreen !== 'undefined' && ManagerScreen.state && ManagerScreen.state.subscriptions) {
+      ManagerScreen.state.subscriptions.forEach(s => { try { s.unsubscribe(); } catch(e){} });
+      ManagerScreen.state.subscriptions = [];
+    }
+  }
 };
 
 document.addEventListener('DOMContentLoaded', () => App.init());
