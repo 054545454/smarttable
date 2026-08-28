@@ -19,20 +19,22 @@ const LandingScreen = {
               <span class="font-playfair text-xl font-semibold text-white">SmartTable</span>
             </div>
             <div class="hidden md:flex items-center gap-6">
-              <a href="#features" class="text-sm text-gray-300 hover:text-white transition">תכונות</a>
-              <a href="#pricing" class="text-sm text-gray-300 hover:text-white transition">תמחור</a>
-              <a href="#demo" class="text-sm text-gray-300 hover:text-white transition">דמו חי</a>
+              <a href="#features" class="text-sm text-gray-300 hover:text-white transition">${I18n.t('nav.features')}</a>
+              <a href="#pricing" class="text-sm text-gray-300 hover:text-white transition">${I18n.t('nav.pricing')}</a>
+              <a href="#demo" class="text-sm text-gray-300 hover:text-white transition">${I18n.t('nav.demo')}</a>
+              <div class="flex items-center gap-1" id="lang-bar-desktop"></div>
               <button onclick="LandingScreen.openSignup()" class="px-5 py-2 rounded-full bg-gradient-to-r from-amber-500 to-yellow-600 text-white text-sm font-semibold hover:shadow-lg hover:shadow-amber-500/30 transition-all">
-                התחל עכשיו
+                ${I18n.t('nav.start')}
               </button>
             </div>
             <button id="mobile-menu-btn" class="md:hidden text-white text-2xl">☰</button>
           </div>
           <div id="mobile-menu" class="hidden md:hidden bg-black/95 backdrop-blur-md px-6 py-4 space-y-3">
-            <a href="#features" class="block text-gray-300 py-1">תכונות</a>
-            <a href="#pricing" class="block text-gray-300 py-1">תמחור</a>
-            <a href="#demo" class="block text-gray-300 py-1">דמו חי</a>
-            <button onclick="LandingScreen.openSignup()" class="block py-2 text-amber-400 font-semibold">התחל עכשיו →</button>
+            <a href="#features" class="block text-gray-300 py-1">${I18n.t('nav.features')}</a>
+            <a href="#pricing" class="block text-gray-300 py-1">${I18n.t('nav.pricing')}</a>
+            <a href="#demo" class="block text-gray-300 py-1">${I18n.t('nav.demo')}</a>
+            <div class="flex items-center gap-1 py-1" id="lang-bar-mobile"></div>
+            <button onclick="LandingScreen.openSignup()" class="block py-2 text-amber-400 font-semibold">${I18n.t('nav.start')} →</button>
           </div>
         </nav>
 
@@ -43,13 +45,13 @@ const LandingScreen = {
           
           <div class="relative max-w-4xl mx-auto px-6 text-center pt-20 pb-12">
             <div class="inline-block px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm font-medium mb-6 animate-fade-in-down">
-              ⚡ חדש — גרסה 2.0 עם אפליקציית אנדרואיד
+              ${I18n.t('hero.badge')}
             </div>
             <h1 class="font-playfair text-5xl md:text-7xl font-bold text-white mb-6 leading-tight">
-              המערכת החכמה<br><span class="bg-gradient-to-r from-amber-400 to-yellow-600 bg-clip-text text-transparent">לניהול מסעדות</span>
+              ${I18n.t('hero.title1')}<br><span class="bg-gradient-to-r from-amber-400 to-yellow-600 bg-clip-text text-transparent">${I18n.t('hero.title2')}</span>
             </h1>
             <p class="text-lg md:text-xl text-gray-400 mb-10 max-w-2xl mx-auto leading-relaxed">
-              תקשורת בזמן אמת בין אורחים לצוות, תפריט דיגיטלי, מתנות גרידה, 
+              ${I18n.t('hero.subtitle')} 
               דוחות חכמים ועוד — הכל מקוד QR אחד. התחל בחינם.
             </p>
             <div class="flex flex-col sm:flex-row gap-4 justify-center">
@@ -57,7 +59,7 @@ const LandingScreen = {
                 🚀 התחל בחינם
               </button>
               <a href="#demo" class="px-8 py-4 rounded-full border border-gray-600 text-white font-semibold text-lg hover:border-amber-500 hover:text-amber-400 transition-all">
-                ▶ נסה דמו חי
+                ${I18n.t('hero.demo')}
               </a>
             </div>
             <div class="mt-8 flex justify-center">
@@ -128,7 +130,7 @@ const LandingScreen = {
               </div>
               
               <button onclick="LandingScreen.openSignup()" class="block w-full py-4 rounded-full bg-gradient-to-r from-amber-500 to-yellow-600 text-white font-semibold text-center hover:shadow-lg transition-all cursor-pointer">
-                התחל עכשיו
+                ${I18n.t('hero.cta')}
               </button>
               <p class="text-center text-gray-400 text-xs mt-4">ללא כרטיס אשראי · ביטול בכל עת</p>
             </div>
@@ -142,18 +144,18 @@ const LandingScreen = {
         <!-- Demo -->
         <section id="demo" class="py-20 bg-gray-900">
           <div class="max-w-4xl mx-auto px-6 text-center">
-            <h2 class="font-playfair text-4xl font-bold text-white mb-4">נסה דמו חי</h2>
-            <p class="text-gray-400 text-lg mb-10">ראה איך המערכת עובדת בזמן אמת — בלי הרשמה</p>
+            <h2 class="font-playfair text-4xl font-bold text-white mb-4">${I18n.t('demo.title')}</h2>
+            <p class="text-gray-400 text-lg mb-10">${I18n.t('demo.subtitle')}</p>
             <div class="grid sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
               <a href="#c/qr_lQxodXWUTtXhCI1GWT8r" class="bg-gray-800 hover:bg-gray-700 rounded-2xl p-6 transition-all border border-gray-700 hover:border-amber-500 group">
                 <div class="text-4xl mb-3">📱</div>
-                <h3 class="text-white font-semibold mb-1 group-hover:text-amber-400 transition">מסך הלקוח</h3>
-                <p class="text-gray-500 text-sm">סרוק כאורח וראה את התפריט, כפתורי השירות ומתנת הגרידה</p>
+                <h3 class="text-white font-semibold mb-1 group-hover:text-amber-400 transition">${I18n.t('demo.customer')}</h3>
+                <p class="text-gray-500 text-sm">${I18n.t('demo.customer.desc')}</p>
               </a>
               <a href="#w/6a8ca8ec905c8710caadb408" class="bg-gray-800 hover:bg-gray-700 rounded-2xl p-6 transition-all border border-gray-700 hover:border-amber-500 group">
                 <div class="text-4xl mb-3">🤵</div>
-                <h3 class="text-white font-semibold mb-1 group-hover:text-amber-400 transition">מסך המלצר</h3>
-                <p class="text-gray-500 text-sm">ראה את לוח המשימות עם קידוד הצבעים והאסקלציה</p>
+                <h3 class="text-white font-semibold mb-1 group-hover:text-amber-400 transition">${I18n.t('demo.waiter')}</h3>
+                <p class="text-gray-500 text-sm">${I18n.t('demo.waiter.desc')}</p>
               </a>
             </div>
           </div>
@@ -162,12 +164,12 @@ const LandingScreen = {
         <!-- CTA -->
         <section id="cta" class="py-20 bg-gradient-to-br from-amber-500 to-yellow-600">
           <div class="max-w-3xl mx-auto px-6 text-center">
-            <h2 class="font-playfair text-4xl font-bold text-white mb-4">מוכן להתחיל?</h2>
-            <p class="text-amber-100 text-lg mb-8">הצטרף למאות מסעדות שכבר משתמשות ב-SmartTable</p>
+            <h2 class="font-playfair text-4xl font-bold text-white mb-4">${I18n.t('cta.title')}</h2>
+            <p class="text-amber-100 text-lg mb-8">${I18n.t('cta.subtitle')}</p>
             <button onclick="LandingScreen.openSignup()" class="inline-block px-10 py-4 rounded-full bg-white text-amber-600 font-bold text-lg hover:shadow-2xl transition-all hover:scale-105 cursor-pointer">
-              צור חשבון חינם
+              ${I18n.t('cta.button')}
             </button>
-            <p class="text-amber-100 text-sm mt-4">5 שולחנות ראשונים חינם לנצח · ללא כרטיס אשראי</p>
+            <p class="text-amber-100 text-sm mt-4">${I18n.t('cta.note')}</p>
           </div>
         </section>
 
@@ -221,7 +223,7 @@ const LandingScreen = {
             <div class="flex items-center gap-3">
               <span class="text-2xl">🍽️</span>
               <div>
-                <h2 class="text-xl font-bold text-white">צור חשבון חינם</h2>
+                <h2 class="text-xl font-bold text-white">${I18n.t('cta.button')}</h2>
                 <p class="text-amber-100 text-xs">5 שולחנות ראשונים חינם · ללא כרטיס אשראי</p>
               </div>
             </div>
@@ -293,7 +295,7 @@ const LandingScreen = {
             <p id="su-error" class="text-red-500 text-sm text-center hidden"></p>
             
             <button id="su-submit" class="btn-primary w-full ${this.state.signupLoading ? 'opacity-50 pointer-events-none' : ''}">
-              ${this.state.signupLoading ? 'יוצר חשבון...' : '🚀 צור חשבון חינם'}
+              ${this.state.signupLoading ? I18n.t('signup.submitting') : I18n.t('signup.submit')}
             </button>
             
             <p class="text-center text-gray-400 text-xs">ביטול בכל עת · ניסיון חינם 90 יום</p>
@@ -385,7 +387,7 @@ const LandingScreen = {
       errEl.textContent = err.message || 'שגיאה ביצירת החשבון';
       errEl.classList.remove('hidden');
       this.state.signupLoading = false;
-      if (btn) { btn.textContent = '🚀 צור חשבון חינם'; btn.classList.remove('opacity-50', 'pointer-events-none'); }
+      if (btn) { btn.textContent = I18n.t('signup.submit'); btn.classList.remove('opacity-50', 'pointer-events-none'); }
     }
   },
 
@@ -493,7 +495,7 @@ const LandingScreen = {
       resultEl.innerHTML = `
         <div class="bg-green-50 rounded-2xl p-4 text-center">
           <div class="text-3xl mb-2">✅</div>
-          <p class="text-green-700 font-semibold mb-1">נמצא: ${result.restaurant_name}</p>`
+          <p class="text-green-700 font-semibold mb-1">נמצא: ${result.restaurant_name}</p>
           <p class="text-gray-500 text-sm mb-4">בחר את סוג המסך למכשיר זה:</p>
           <div class="grid grid-cols-2 gap-3">
             <button id="pair-waiter" class="p-4 rounded-xl border-2 border-gray-200 hover:border-amber-500 transition">
@@ -575,7 +577,7 @@ const LandingScreen = {
         <div class="bg-green-50 rounded-2xl p-6 text-center">
           <div class="text-5xl mb-3">🎉</div>
           <p class="text-green-700 font-bold mb-2">המכשיר שויך בהצלחה!</p>
-          <p class="text-gray-500 text-sm">המסך נעול ב-Kiosk Mode</p>
+          <p class="text-gray-500 text-sm">המסך נעול ב-${I18n.t('features.kiosk.title')}</p>
         </div>
       `;
 
@@ -601,7 +603,7 @@ const LandingScreen = {
       { icon: '🌍', title: '5 שפות', desc: 'עברית, אנגלית, ערבית, רוסית וצרפתית — המערכת מתרגמת הכל אוטומטית לאורח ולצוות' },
       { icon: '🔒', title: 'מצב Kiosk', desc: 'נעילת טאבלטים למסך מלצר/מנהל עם קוד PIN — מתמיד גם אחרי אתחול המכשיר' },
       { icon: '📱', title: 'אפליקציית אנדרואיד', desc: 'הורד APK והתקן בכל מכשיר אנדרואיד — עובד כאפליקציה מקורית עם PWA' },
-      { icon: '💳', title: 'תשלום אונליין', desc: 'חשבון דיגיטלי, העברה בנקאית או תשלום אונליין — ישירות ממסך הלקוח' },
+      { icon: '💳', title: 'תשלום אונליין', desc: `חשבון דיגיטלי, העברה בנקאית או תשלום אונליין — ישירות מ${I18n.t('demo.customer')}` },
     ];
     return features.map(f => `
       <div class="bg-white rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 border border-gray-100">
@@ -621,7 +623,7 @@ const LandingScreen = {
     ];
     return tiers.map(t => `
       <div class="bg-white rounded-2xl p-6 text-center border ${t.price === '$143' ? 'border-amber-500 ring-2 ring-amber-500/20' : 'border-gray-200'} relative">
-        ${t.price === '$143' ? '<div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-amber-500 text-white text-xs font-semibold">פופולרי</div>' : ''}
+        ${t.price === '$143' ? `<div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-amber-500 text-white text-xs font-semibold">${I18n.t('pricing.popular')}</div>` : ''}
         <h3 class="font-semibold text-gray-900 mb-1">${t.name}</h3>
         <p class="text-gray-400 text-xs mb-3">${t.tables} שולחנות</p>
         <div class="text-2xl font-bold text-gray-900">${t.price}<span class="text-sm font-normal text-gray-400">/mo</span></div>
@@ -630,6 +632,15 @@ const LandingScreen = {
   },
 
   attachEvents() {
+    // Render language bars
+    const langBarDesktop = document.getElementById('lang-bar-desktop');
+    const langBarMobile = document.getElementById('lang-bar-mobile');
+    if (langBarDesktop) langBarDesktop.innerHTML = I18n.getLangBar();
+    if (langBarMobile) langBarMobile.innerHTML = I18n.getLangBar();
+
+    // PWA Install Prompt
+    this.setupInstallPrompt();
+
     const nav = document.getElementById('landing-nav');
     const handleScroll = () => {
       if (window.scrollY > 50) { nav.classList.add('bg-black/80', 'backdrop-blur-md', 'shadow-lg'); }
@@ -678,7 +689,7 @@ const LandingScreen = {
   getTier(count) {
     if (count <= 5) return { name: 'חינם', price: '$0', range: `עד ${count} שולחנות`, features: 'כל התכונות הכלולות' };
     if (count <= 15) return { name: 'Starter', price: '$99', range: `${count} שולחנות`, features: 'כל התכונות + דוחות מתקדמים' };
-    if (count <= 30) return { name: 'Professional', price: '$143', range: `${count} שולחנות`, features: 'כל התכונות + Kiosk Mode + תמיכה' };
+    if (count <= 30) return { name: 'Professional', price: '$143', range: `${count} שולחנות`, features: `כל התכונות + ${I18n.t('features.kiosk.title')} + תמיכה` };
     return { name: 'Unlimited', price: '$199', range: `${count}+ שולחנות`, features: 'כל התכונות + תמיכה VIP' };
   },
 
@@ -687,5 +698,54 @@ const LandingScreen = {
     if (count <= 15) return { plan: 'tier_15', fee: 99, name: 'Starter' };
     if (count <= 30) return { plan: 'tier_30', fee: 143, name: 'Professional' };
     return { plan: 'tier_unlimited', fee: 199, name: 'Unlimited' };
+  },
+
+  // PWA Install Prompt
+  deferredPrompt: null,
+  setupInstallPrompt() {
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      this.deferredPrompt = e;
+      this.showInstallBanner();
+    });
+
+    window.addEventListener('appinstalled', () => {
+      const banner = document.getElementById('pwa-install-banner');
+      if (banner) banner.remove();
+    });
+  },
+
+  showInstallBanner() {
+    if (document.getElementById('pwa-install-banner')) return;
+    const banner = document.createElement('div');
+    banner.id = 'pwa-install-banner';
+    banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9998;background:linear-gradient(135deg,#C9A84C,#B8860B);color:white;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 -4px 20px rgba(0,0,0,0.3);animation:slideUp 0.3s ease';
+    const isHe = I18n.current === 'he';
+    banner.innerHTML = 
+      '<div style="display:flex;align-items:center;gap:10px">' +
+        '<span style="font-size:1.5rem">📱</span>' +
+        '<span style="font-weight:600;font-size:14px">' + (isHe ? 'התקן את SmartTable — גישה מהירה מהמסך הביתה' : 'Install SmartTable — quick access from home screen') + '</span>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px">' +
+        '<button id="pwa-install-later" style="padding:6px 14px;border-radius:8px;background:rgba(255,255,255,0.2);color:white;border:0;font-weight:600;cursor:pointer;font-size:13px">' + (isHe ? 'אולי אחר כך' : 'Later') + '</button>' +
+        '<button id="pwa-install-now" style="padding:6px 14px;border-radius:8px;background:white;color:#B8860B;border:0;font-weight:700;cursor:pointer;font-size:13px">' + (isHe ? 'התקן' : 'Install') + '</button>' +
+      '</div>';
+    document.body.appendChild(banner);
+
+    document.getElementById('pwa-install-later')?.addEventListener('click', () => {
+      banner.remove();
+      localStorage.setItem('st_pwa_dismissed', Date.now().toString());
+    });
+    document.getElementById('pwa-install-now')?.addEventListener('click', async () => {
+      if (this.deferredPrompt) {
+        this.deferredPrompt.prompt();
+        const choice = await this.deferredPrompt.userChoice;
+        if (choice.outcome === 'accepted') {
+          Utils.toast(isHe ? '🎉 SmartTable הותקן!' : '🎉 SmartTable installed!');
+        }
+        this.deferredPrompt = null;
+        banner.remove();
+      }
+    });
   },
 };

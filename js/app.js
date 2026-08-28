@@ -6,6 +6,13 @@ const App = {
     this.handleRoute();
     window.addEventListener('hashchange', () => this.handleRoute());
     Utils.initNetworkBanner();
+
+    // PWA Install Prompt (global)
+    this.deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      this.deferredPrompt = e;
+    });
   },
 
   // ─── Kiosk Auto-Restore ──────────────────────────────────
@@ -128,7 +135,7 @@ const App = {
         <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 to-black p-6">
           <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden">
             <div class="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4">
-              <h2 class="text-xl font-bold text-white">✅ ${result.restaurant_name}</h2>`
+              <h2 class="text-xl font-bold text-white">✅ ${result.restaurant_name}</h2>
               <p class="text-green-100 text-sm">בחר את סוג המסך</p>
             </div>
             <div class="p-6">
