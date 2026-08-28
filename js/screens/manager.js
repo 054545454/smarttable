@@ -287,8 +287,8 @@ const ManagerScreen = {
   },
 
   attachEvents() {
-    document.getElementById('manager-logout').addEventListener('click', () => { Auth.clearSession('manager'); this.cleanup(); window.location.hash = ''; }
-    const kioskBtn = document.getElementById("manager-kiosk"); if (kioskBtn) kioskBtn.addEventListener("click", () => KioskLock.lock()););
+    document.getElementById('manager-logout').addEventListener('click', () => { Auth.clearSession('manager'); this.cleanup(); window.location.hash = ''; });
+    const kioskBtn = document.getElementById("manager-kiosk"); if (kioskBtn) kioskBtn.addEventListener("click", () => KioskLock.lock());
     const os = document.getElementById('open-shift'); if (os) os.addEventListener('click', () => this.openShift());
     const cs = document.getElementById('close-shift'); if (cs) cs.addEventListener('click', () => this.closeShift());
     const bt = document.getElementById('busy-toggle'); if (bt) bt.addEventListener('change', () => this.toggleBusy(bt.checked));
