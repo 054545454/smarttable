@@ -49,16 +49,13 @@ const KioskLock = {
 
   async checkServerKioskStatus() {
     try {
-      const res = await fetch(CONFIG.api.registerUrl, {
+      const res = await fetch(CONFIG.api.url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'getKioskStatus',
-          filters: { restaurant_id: this.state.restaurantId, device_id: this.state.deviceId }
-        })
+        body: JSON.stringify({ action: 'select', table: 'DeviceSession', filters: { restaurant_id: this.state.restaurantId, device_id: this.state.deviceId }, options: { single: true } })
       });
       const result = await res.json();
-      if (result.is_locked && !this.state.locked) {
+      if (result && result.is_locked && !this.state.locked) {
         this.state.locked = true;
         this.state.screenType = result.screen_type || this.state.screenType;
         this.activate();
@@ -68,14 +65,26 @@ const KioskLock = {
 
   async lock() {
     try {
-      await fetch(CONFIG.api.registerUrl, {
+      // Check if session exists, then update or insert
+      const checkRes = await fetch(CONFIG.api.url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'lockDevice',
-          data: { restaurant_id: this.state.restaurantId, device_id: this.state.deviceId, screen_type: this.state.screenType }
-        })
+        body: JSON.stringify({ action: 'select', table: 'DeviceSession', filters: { restaurant_id: this.state.restaurantId, device_id: this.state.deviceId } })
       });
+      const existing = await checkRes.json();
+      if (Array.isArray(existing) && existing.length > 0) {
+        await fetch(CONFIG.api.url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'update', table: 'DeviceSession', filters: { id: existing[0].id }, data: { is_locked: true, locked_at: new Date().toISOString(), screen_type: this.state.screenType } })
+        });
+      } else {
+        await fetch(CONFIG.api.url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'insert', table: 'DeviceSession', data: { restaurant_id: this.state.restaurantId, device_id: this.state.deviceId, screen_type: this.state.screenType, is_locked: true, locked_at: new Date().toISOString() } })
+        });
+      }
     } catch(e) {}
     
     // Save to localStorage for persistence across reboots
@@ -148,16 +157,20 @@ const KioskLock = {
       const pin = pinInput.value.trim();
       if (!pin) return;
       try {
-        const res = await fetch(CONFIG.api.registerUrl, {
+        // Get kiosk_pin from restaurant settings
+        const settingsRes = await fetch(CONFIG.api.url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'unlockDevice',
-            data: { restaurant_id: KioskLock.state.restaurantId, device_id: KioskLock.state.deviceId, pin }
-          })
+          body: JSON.stringify({ action: 'select', table: 'restaurant_settings', filters: { restaurant_id: KioskLock.state.restaurantId }, options: { single: true } })
         });
-        const result = await res.json();
-        if (result.success) {
+        const settings = await settingsRes.json();
+        if (settings && pin === settings.kiosk_pin) {
+          // Unlock the device
+          await fetch(CONFIG.api.url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'update', table: 'DeviceSession', filters: { restaurant_id: KioskLock.state.restaurantId, device_id: KioskLock.state.deviceId }, data: { is_locked: false } })
+          });
           KioskLock.unlock();
         } else {
           pinInput.value = '';

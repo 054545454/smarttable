@@ -3,6 +3,7 @@ const CONFIG = {
   api: {
     url: 'https://veda-0596d020.base44.app/functions/smarttableApi',
     registerUrl: 'https://veda-0596d020.base44.app/functions/smarttableRegister',
+    pairingUrl: 'https://veda-0596d020.base44.app/functions/smarttablePairing',
   },
   app: {
     name: 'SmartTable',

@@ -468,21 +468,32 @@ const LandingScreen = {
     btn.classList.add('opacity-50', 'pointer-events-none');
 
     try {
-      const res = await fetch(CONFIG.api.registerUrl, {
+      const res = await fetch(CONFIG.api.url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'validatePairingCode', data: { pairing_code: code } })
+        body: JSON.stringify({ action: 'select', table: 'DeviceSession', filters: { pairing_code: code, device_id: 'pairing_pending' } })
       });
-      const result = await res.json();
+      const sessions = await res.json();
+      if (sessions.error) throw new Error(sessions.error);
+      if (!Array.isArray(sessions) || sessions.length === 0) throw new Error('קוד שיווך לא נמצא או שפג תוקפו');
+      const session = sessions[0];
+      if (session.pairing_expires_at && new Date(session.pairing_expires_at) < new Date()) throw new Error('קוד השיווך פג תוקף. בקש קוד חדש מהמנהל.');
 
-      if (result.error) throw new Error(result.error);
+      // Get restaurant name
+      const restRes = await fetch(CONFIG.api.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'select', table: 'restaurants', filters: { id: session.restaurant_id }, options: { single: true } })
+      });
+      const restaurant = await restRes.json();
+      const result = { restaurant_id: session.restaurant_id, restaurant_name: restaurant?.name || 'מסעדה', screen_type: session.screen_type || '' };
 
       // Show screen type selector
       resultEl.classList.remove('hidden');
       resultEl.innerHTML = `
         <div class="bg-green-50 rounded-2xl p-4 text-center">
           <div class="text-3xl mb-2">✅</div>
-          <p class="text-green-700 font-semibold mb-1">נמצא: ${result.restaurant_name}</p>
+          <p class="text-green-700 font-semibold mb-1">נמצא: ${result.restaurant_name}</p>`
           <p class="text-gray-500 text-sm mb-4">בחר את סוג המסך למכשיר זה:</p>
           <div class="grid grid-cols-2 gap-3">
             <button id="pair-waiter" class="p-4 rounded-xl border-2 border-gray-200 hover:border-amber-500 transition">
@@ -521,16 +532,36 @@ const LandingScreen = {
     resultEl.innerHTML = '<div class="text-center"><div class="spinner mx-auto" style="width:32px;height:32px"></div><p class="text-gray-500 text-sm mt-2">משייך מכשיר...</p></div>';
 
     try {
-      const res = await fetch(CONFIG.api.registerUrl, {
+      // Check if device already exists
+      const checkRes = await fetch(CONFIG.api.url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'pairDevice',
-          data: { pairing_code: code, restaurant_id: restaurantId, device_id: deviceId, screen_type: screenType, device_name: navigator.userAgent.substring(0, 50) }
-        })
+        body: JSON.stringify({ action: 'select', table: 'DeviceSession', filters: { restaurant_id: restaurantId, device_id: deviceId } })
       });
-      const result = await res.json();
-      if (result.error) throw new Error(result.error);
+      const existing = await checkRes.json();
+
+      if (Array.isArray(existing) && existing.length > 0) {
+        // Update existing device session
+        await fetch(CONFIG.api.url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'update', table: 'DeviceSession', filters: { id: existing[0].id }, data: { screen_type: screenType, paired_at: new Date().toISOString(), is_locked: true, locked_at: new Date().toISOString(), device_name: navigator.userAgent.substring(0, 50) } })
+        });
+      } else {
+        // Create new device session
+        await fetch(CONFIG.api.url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'insert', table: 'DeviceSession', data: { restaurant_id: restaurantId, device_id: deviceId, screen_type: screenType, device_name: navigator.userAgent.substring(0, 50), paired_at: new Date().toISOString(), is_locked: true, locked_at: new Date().toISOString() } })
+        });
+      }
+
+      // Delete the pairing pending session
+      await fetch(CONFIG.api.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', table: 'DeviceSession', filters: { pairing_code: code, device_id: 'pairing_pending' } })
+      });
 
       // Save kiosk state in localStorage
       localStorage.setItem('st_kiosk_device', JSON.stringify({

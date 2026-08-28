@@ -520,21 +520,41 @@ const AdminScreen = {
     const btn = document.getElementById('gen-pairing-code');
     if (btn) { btn.textContent = 'מייצר...'; btn.classList.add('opacity-50', 'pointer-events-none'); }
     try {
-      const res = await fetch(CONFIG.api.registerUrl, {
+      // Generate a 6-digit code
+      const code = String(Math.floor(100000 + Math.random() * 900000));
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+      // Check if there's already a pending session
+      const checkRes = await fetch(CONFIG.api.url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'generatePairingCode', data: { restaurant_id: this.state.restaurantId } })
+        body: JSON.stringify({ action: 'select', table: 'DeviceSession', filters: { restaurant_id: this.state.restaurantId, device_id: 'pairing_pending' } })
       });
-      const result = await res.json();
-      if (result.error) throw new Error(result.error);
+      const existing = await checkRes.json();
+
+      if (Array.isArray(existing) && existing.length > 0) {
+        // Update existing pending session
+        await fetch(CONFIG.api.url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'update', table: 'DeviceSession', filters: { id: existing[0].id }, data: { pairing_code: code, pairing_expires_at: expiresAt } })
+        });
+      } else {
+        // Create new pending session
+        await fetch(CONFIG.api.url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'insert', table: 'DeviceSession', data: { restaurant_id: this.state.restaurantId, device_id: 'pairing_pending', pairing_code: code, pairing_expires_at: expiresAt, is_locked: false } })
+        });
+      }
 
       const display = document.getElementById('pairing-code-display');
       const valueEl = document.getElementById('pairing-code-value');
       const linkEl = document.getElementById('pairing-link');
       if (display && valueEl) {
         display.classList.remove('hidden');
-        valueEl.textContent = result.pairing_code;
-        if (linkEl) linkEl.href = `#pair/${result.pairing_code}`;
+        valueEl.textContent = code;
+        if (linkEl) linkEl.href = `#pair/${code}`;
       }
       Utils.toast('קוד שיווך נוצר!');
       // Auto-refresh after 10 minutes
@@ -553,13 +573,14 @@ const AdminScreen = {
     const container = document.getElementById('active-devices');
     if (!container) return;
     try {
-      const res = await fetch(CONFIG.api.registerUrl, {
+      const res = await fetch(CONFIG.api.url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'getDeviceSessions', filters: { restaurant_id: this.state.restaurantId } })
+        body: JSON.stringify({ action: 'select', table: 'DeviceSession', filters: { restaurant_id: this.state.restaurantId } })
       });
-      const devices = await res.json();
-      if (!Array.isArray(devices) || devices.length === 0) return;
+      const allDevices = await res.json();
+      const devices = (Array.isArray(allDevices) ? allDevices : []).filter(d => d.device_id !== 'pairing_pending' && d.is_locked);
+      if (devices.length === 0) return;
       
       container.innerHTML = `
         <div class="mt-3 pt-3 border-t border-gray-200">

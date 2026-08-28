@@ -104,21 +104,31 @@ const App = {
     `;
 
     try {
-      const res = await fetch(CONFIG.api.registerUrl, {
+      const res = await fetch(CONFIG.api.url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'validatePairingCode', data: { pairing_code: code } })
+        body: JSON.stringify({ action: 'select', table: 'DeviceSession', filters: { pairing_code: code, device_id: 'pairing_pending' } })
       });
-      const result = await res.json();
+      const sessions = await res.json();
+      if (sessions.error) throw new Error(sessions.error);
+      if (!Array.isArray(sessions) || sessions.length === 0) throw new Error('קוד שיווך לא נמצא או שפג תוקפו');
+      const session = sessions[0];
+      if (session.pairing_expires_at && new Date(session.pairing_expires_at) < new Date()) throw new Error('קוד השיווך פג תוקף');
 
-      if (result.error) throw new Error(result.error);
+      const restRes = await fetch(CONFIG.api.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'select', table: 'restaurants', filters: { id: session.restaurant_id }, options: { single: true } })
+      });
+      const restaurant = await restRes.json();
+      const result = { restaurant_id: session.restaurant_id, restaurant_name: restaurant?.name || 'מסעדה' };
 
       // Show screen type selector
       document.getElementById('app').innerHTML = `
         <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 to-black p-6">
           <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden">
             <div class="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4">
-              <h2 class="text-xl font-bold text-white">✅ ${result.restaurant_name}</h2>
+              <h2 class="text-xl font-bold text-white">✅ ${result.restaurant_name}</h2>`
               <p class="text-green-100 text-sm">בחר את סוג המסך</p>
             </div>
             <div class="p-6">
@@ -142,13 +152,31 @@ const App = {
 
       const completePair = async (screenType) => {
         try {
-          await fetch(CONFIG.api.registerUrl, {
+          // Check if device already exists
+          const checkRes = await fetch(CONFIG.api.url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'pairDevice',
-              data: { pairing_code: code, restaurant_id: restaurantId, device_id: deviceId, screen_type: screenType, device_name: navigator.userAgent.substring(0, 50) }
-            })
+            body: JSON.stringify({ action: 'select', table: 'DeviceSession', filters: { restaurant_id: restaurantId, device_id: deviceId } })
+          });
+          const existing = await checkRes.json();
+          if (Array.isArray(existing) && existing.length > 0) {
+            await fetch(CONFIG.api.url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'update', table: 'DeviceSession', filters: { id: existing[0].id }, data: { screen_type: screenType, paired_at: new Date().toISOString(), is_locked: true, locked_at: new Date().toISOString(), device_name: navigator.userAgent.substring(0, 50) } })
+            });
+          } else {
+            await fetch(CONFIG.api.url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'insert', table: 'DeviceSession', data: { restaurant_id: restaurantId, device_id: deviceId, screen_type: screenType, device_name: navigator.userAgent.substring(0, 50), paired_at: new Date().toISOString(), is_locked: true, locked_at: new Date().toISOString() } })
+            });
+          }
+          // Delete pairing pending session
+          await fetch(CONFIG.api.url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'delete', table: 'DeviceSession', filters: { pairing_code: code, device_id: 'pairing_pending' } })
           });
 
           localStorage.setItem('st_kiosk_device', JSON.stringify({
