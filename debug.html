@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html><head><title>SmartTable Debug</title></head>
+<body>
+<div id="result">Loading...</div>
+<script>
+var r = document.getElementById('result');
+r.innerHTML = 'Starting...<br>';
+
+var scripts = [
+  'js/config.js', 'js/i18n.js', 'js/supabase.js', 'js/auth.js',
+  'js/utils.js', 'js/kiosk.js', 'js/screens/landing.js', 'js/screens/register.js',
+  'js/screens/customer.js', 'js/screens/waiter.js', 'js/screens/manager.js',
+  'js/screens/admin.js', 'js/screens/superadmin.js', 'js/app.js'
+];
+
+var checks = {
+  'js/config.js': 'CONFIG', 'js/i18n.js': 'I18n', 'js/supabase.js': 'Supabase',
+  'js/auth.js': 'Auth', 'js/utils.js': 'Utils', 'js/kiosk.js': 'KioskLock',
+  'js/screens/landing.js': 'LandingScreen', 'js/screens/register.js': 'RegisterScreen',
+  'js/screens/customer.js': 'CustomerScreen', 'js/screens/waiter.js': 'WaiterScreen',
+  'js/screens/manager.js': 'ManagerScreen', 'js/screens/admin.js': 'AdminScreen',
+  'js/screens/superadmin.js': 'SuperAdminScreen', 'js/app.js': 'App'
+};
+
+var idx = 0;
+function loadNext() {
+  if (idx >= scripts.length) {
+    r.innerHTML += '<br>=== DONE ===<br>';
+    return;
+  }
+  var src = scripts[idx];
+  var check = checks[src];
+  var s = document.createElement('script');
+  s.src = src + '?v=' + Date.now();
+  s.onload = function() {
+    r.innerHTML += src + ': OK, ' + check + '=' + (typeof window[check]) + '<br>';
+    idx++; loadNext();
+  };
+  s.onerror = function() {
+    r.innerHTML += src + ': FAILED<br>';
+    idx++; loadNext();
+  };
+  document.head.appendChild(s);
+}
+loadNext();
+</script>
+</body>
+</html>
