@@ -482,3 +482,4 @@ const I18n = {
 
 // Global alias for convenience
 var t = I18n.t.bind(I18n);
+var setLang = I18n.setLang.bind(I18n);

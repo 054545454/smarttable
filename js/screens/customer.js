@@ -80,7 +80,7 @@ const CustomerScreen = {
         return;
       }
 
-      if (data.settings?.default_language) setLang(data.settings.default_language);
+      if (data.settings?.default_language) I18n.setLang(data.settings.default_language);
       this.state.scratchUsed = data.table.scratch_used || sessionStorage.getItem(`scratch_${data.table.id}_${this.state.deviceId}`) === 'true';
 
       this.render();
