@@ -224,7 +224,7 @@ const LandingScreen = {
               <span class="text-2xl">🍽️</span>
               <div>
                 <h2 class="text-xl font-bold text-white">${I18n.t('cta.button')}</h2>
-                <p class="text-amber-100 text-xs">5 שולחנות ראשונים חינם · ללא כרטיס אשראי</p>
+                <p class="text-amber-100 text-xs">חודש ראשון חינם · ללא כרטיס אשראי</p>
               </div>
             </div>
             <button onclick="LandingScreen.closeSignup()" class="text-white/80 hover:text-white text-2xl">✕</button>
