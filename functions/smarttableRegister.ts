@@ -48,6 +48,42 @@ function generatePairingCode() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
+// ─── SmartTable 2.1 Pricing (30-day trial, 2 tiers, monthly/annual) ──
+const TRIAL_DAYS = 30;
+const SUPER_ADMIN_EMAIL = "Smartable1000@gmail.com";
+const PRICING = {
+  tier_20:     { name: "Standard", maxTables: 20,  monthly: 143, annual: 99 },
+  tier_20plus: { name: "Premium",  maxTables: 999, monthly: 214, annual: 189 },
+};
+const APP_URL = "https://violet-dunlin-978279.hostingersite.com";
+
+function getTierFor(tableCount) {
+  return tableCount > 20 ? PRICING.tier_20plus : PRICING.tier_20;
+}
+
+// ─── Modular Gmail sender (Base44 Gmail Connector) ──────────────────
+async function sendGmail(base44, to, subjectText, htmlBody, textBody) {
+  try {
+    const { accessToken } = await base44.asServiceRole.connectors.getConnection("gmail");
+    if (!accessToken) return false;
+    const subject = `=?utf-8?B?${utf8ToBase64(subjectText)}?=`;
+    const boundary = "boundary_" + crypto.randomUUID().replace(/-/g, "");
+    const rawMessage = [
+      "From: SmartTable <uidesign68@gmail.com>", "To: " + to, "Subject: " + subject,
+      "MIME-Version: 1.0", `Content-Type: multipart/alternative; boundary="${boundary}"`, "",
+      `--${boundary}`, "Content-Type: text/plain; charset=utf-8", "Content-Transfer-Encoding: base64", "", utf8ToBase64(textBody), "",
+      `--${boundary}`, "Content-Type: text/html; charset=utf-8", "Content-Transfer-Encoding: base64", "", utf8ToBase64(htmlBody), "",
+      `--${boundary}--`, ""
+    ].join("\r\n");
+    const sendRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + accessToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ raw: utf8ToBase64(rawMessage) })
+    });
+    return sendRes.ok;
+  } catch (e) { console.error("sendGmail failed:", e); return false; }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: {
@@ -91,12 +127,10 @@ Deno.serve(async (req) => {
         const existingUsers = await base44.asServiceRole.entities.AppUser.filter({ username: email, role: "admin" });
         if (existingUsers && existingUsers.length > 0) throw { status: 409, error: "כתובת האימייל כבר רשומה במערכת" };
 
-        // Determine pricing tier
-        let plan = "free", fee = 0, planName = "Free";
-        if (tableCount <= 5) { plan = "free"; fee = 0; planName = "Free"; }
-        else if (tableCount <= 15) { plan = "tier_15"; fee = 99; planName = "Starter"; }
-        else if (tableCount <= 30) { plan = "tier_30"; fee = 143; planName = "Professional"; }
-        else { plan = "tier_unlimited"; fee = 199; planName = "Unlimited"; }
+        // Determine pricing tier (SmartTable 2.1: everyone starts with a 30-day free trial)
+        const tier = getTierFor(tableCount);
+        const plan = tableCount > 20 ? "tier_20plus" : "tier_20";
+        const fee = tier.monthly, planName = tier.name;
 
         // Create restaurant
         const restaurant = await base44.asServiceRole.entities.Restaurant.create({
@@ -107,7 +141,7 @@ Deno.serve(async (req) => {
           max_tables: tableCount, status: "active",
           subscription_plan: plan, monthly_fee: fee, billing_currency: "USD",
           billing_status: "trial", billing_day: new Date().getDate(),
-          promo_active: true, promo_expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+          promo_active: true, promo_expires_at: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString(),
         });
 
         // Create default settings
@@ -140,44 +174,57 @@ Deno.serve(async (req) => {
           });
         }
 
-        // Send welcome email
-        let emailSent = false;
-        try {
-          const { accessToken } = await base44.asServiceRole.connectors.getConnection("gmail");
-          const loginUrl = `https://violet-dunlin-978279.hostingersite.com#a/${restaurant.id}`;
-          const subject = `=?utf-8?B?${utf8ToBase64("ברוכים הבאים ל-SmartTable! פרטי הכניסה שלך")}?=`;
-          const htmlBody = [
-            '<div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">',
-            '<h2 style="color:#C9A84C">ברוכים הבאים ל-SmartTable! 🎉</h2>',
-            '<p>שלום ' + ownerName + ',</p>',
-            '<p>חשבון המסעדה שלך נוצר בהצלחה.</p>',
-            '<div style="background:#f5f5f5;padding:20px;border-radius:8px;margin:20px 0">',
-            '<p style="margin:5px 0"><b>מסעדה:</b> ' + name + '</p>',
-            '<p style="margin:5px 0"><b>תוכנית:</b> ' + planName + (fee > 0 ? ' ($' + fee + '/mo)' : ' (חינם)') + '</p>',
-            '<p style="margin:5px 0"><b>שם משתמש:</b> ' + email + '</p>',
-            '<p style="margin:5px 0"><b>ניסיון חינם:</b> 90 יום</p>',
-            '</div>',
-            '<p><b>קישור לכניסה:</b><br><a href="' + loginUrl + '" style="color:#C9A84C;font-size:16px">' + loginUrl + '</a></p>',
-            '<p style="color:#888;margin-top:30px;font-size:12px">SmartTable — מערכת ניהול חכמה למסעדות</p>',
-            '</div>'
-          ].join("\n");
-          const textBody = `ברוכים הבאים ל-SmartTable!\n\nשלום ${ownerName},\nחשבון המסעדה שלך נוצר.\n\nמסעדה: ${name}\nתוכנית: ${planName}\nשם משתמש: ${email}\n\nקישור: ${loginUrl}`;
-          const boundary = "boundary_" + crypto.randomUUID().replace(/-/g, "");
-          const rawMessage = [
-            "From: SmartTable <uidesign68@gmail.com>", "To: " + email, "Subject: " + subject,
-            "MIME-Version: 1.0", `Content-Type: multipart/alternative; boundary="${boundary}"`, "",
-            `--${boundary}`, "Content-Type: text/plain; charset=utf-8", "Content-Transfer-Encoding: base64", "", utf8ToBase64(textBody), "",
-            `--${boundary}`, "Content-Type: text/html; charset=utf-8", "Content-Transfer-Encoding: base64", "", utf8ToBase64(htmlBody), "",
-            `--${boundary}--`, ""
-          ].join("\n");
-          const sendRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
-            method: "POST", headers: { "Authorization": "Bearer " + accessToken, "Content-Type": "application/json" },
-            body: JSON.stringify({ raw: utf8ToBase64(rawMessage) })
-          });
-          if (sendRes.ok) emailSent = true;
-        } catch (emailErr) { /* Non-blocking */ }
+        // ── Send Welcome Email to the new customer ──────────────
+        const loginUrl = `${APP_URL}#a/${restaurant.id}`;
+        const trialEnd = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toLocaleDateString("he-IL");
+        const priceLine = fee > 0
+          ? `${tier.name} · ${tableCount} שולחנות · $${tier.monthly}/חודש או $${tier.annual}/חודש בחיוב שנתי`
+          : `${tier.name} · ${tableCount} שולחנות`;
+        const welcomeHtml = [
+          '<div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">',
+          '<h2 style="color:#C9A84C">ברוכים הבאים ל-SmartTable! 🎉</h2>',
+          '<p>שלום ' + ownerName + ',</p>',
+          '<p>חשבון המסעדה שלך נוצר בהצלחה. יש לך <b>30 יום ניסיון חינם מלא</b> — ללא כרטיס אשראי.</p>',
+          '<div style="background:#f5f5f5;padding:20px;border-radius:8px;margin:20px 0">',
+          '<p style="margin:5px 0"><b>מסעדה:</b> ' + name + '</p>',
+          '<p style="margin:5px 0"><b>תוכנית:</b> ' + priceLine + '</p>',
+          '<p style="margin:5px 0"><b>שם משתמש:</b> ' + email + '</p>',
+          '<p style="margin:5px 0"><b>ניסיון חינם עד:</b> ' + trialEnd + '</p>',
+          '</div>',
+          '<p style="font-size:16px"><b>🚀 כניסה לפאנל הניהול שלך:</b><br>',
+          '<a href="' + loginUrl + '" style="color:#C9A84C;font-weight:bold">' + loginUrl + '</a></p>',
+          '<div style="background:#FFF8E1;padding:16px;border-radius:8px;margin:20px 0;border-right:4px solid #C9A84C">',
+          '<p style="margin:0 0 8px 0"><b>📱 התקנה כאפליקציה (PWA) — 3 צעדים:</b></p>',
+          '<p style="margin:4px 0">1. פתח את הקישור למעלה בדפדפן בטלפון</p>',
+          '<p style="margin:4px 0">2. לחץ על תפריט הדפדפן (⋮ באנדרואיד / שיתוף ב-iPhone)</p>',
+          '<p style="margin:4px 0">3. בחר "הוסף למסך הבית" — וקיבלת אפליקציה!</p>',
+          '</div>',
+          '<p style="color:#888;margin-top:30px;font-size:12px">SmartTable — מערכת ניהול חכמה למסעדות</p>',
+          '</div>'
+        ].join("\n");
+        const welcomeText = `ברוכים הבאים ל-SmartTable!\n\nשלום ${ownerName},\nחשבון המסעדה שלך נוצר.\n\nמסעדה: ${name}\nתוכנית: ${priceLine}\nשם משתמש: ${email}\nניסיון חינם עד: ${trialEnd}\n\nכניסה: ${loginUrl}\n\nPWA: פתח בטלפון → תפריט דפדפן → "הוסף למסך הבית".`;
+        const welcomeSent = await sendGmail(base44, email, "ברוכים הבאים ל-SmartTable! פרטי הכניסה שלך", welcomeHtml, welcomeText);
 
-        result = { success: true, restaurant_id: restaurant.id, plan: planName, fee, email_sent: emailSent, tables_created: tablesToCreate };
+        // ── Send Instant Alert to Super Admin ─────────────────────
+        const saHtml = [
+          '<div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">',
+          '<h2 style="color:#C9A84C">🔔 רישום חדש ב-SmartTable</h2>',
+          '<div style="background:#f5f5f5;padding:20px;border-radius:8px;margin:20px 0">',
+          '<p style="margin:5px 0"><b>מסעדה:</b> ' + name + '</p>',
+          '<p style="margin:5px 0"><b>בעלים:</b> ' + ownerName + '</p>',
+          '<p style="margin:5px 0"><b>אימייל:</b> ' + email + '</p>',
+          '<p style="margin:5px 0"><b>טלפון:</b> ' + (phone || "—") + '</p>',
+          '<p style="margin:5px 0"><b>שולחנות:</b> ' + tableCount + ' · <b>תוכנית:</b> ' + planName + ' ($' + fee + '/mo)</p>',
+          '<p style="margin:5px 0"><b>תאריך:</b> ' + new Date().toLocaleString("he-IL") + '</p>',
+          '</div>',
+          '<p><a href="' + APP_URL + '#sa" style="color:#C9A84C">פתח את לוח הבקרה הגלובלי →</a></p>',
+          '<p><a href="' + loginUrl + '" style="color:#C9A84C">מסך הניהול של המסעדה →</a></p>',
+          '</div>'
+        ].join("\n");
+        const saText = `רישום חדש ב-SmartTable\n\nמסעדה: ${name}\nבעלים: ${ownerName} (${email})\nטלפון: ${phone || "—"}\nשולחנות: ${tableCount} · תוכנית: ${planName}`;
+        const adminAlertSent = await sendGmail(base44, SUPER_ADMIN_EMAIL, `🔔 רישום חדש: ${name}`, saHtml, saText);
+
+        result = { success: true, restaurant_id: restaurant.id, plan: planName, fee, email_sent: welcomeSent, admin_alert_sent: adminAlertSent, tables_created: tablesToCreate, trial_days: TRIAL_DAYS };
         break;
       }
 
@@ -331,23 +378,30 @@ Deno.serve(async (req) => {
         break;
       }
 
-      // ─── PAYMENT GATEWAY STUB ──────────────────────────────
+      // ─── PAYMENT ADAPTER (modular — Tranzila/PayPal/Stripe ready) ──
       case "initPayment": {
         const d = sanitizeObject(body.data);
-        // Payment stub for future Stripe/Tranzila integration
-        // Returns mock checkout URL — real integration will replace this
-        const restaurantId = d.restaurant_id;
-        const plan = d.plan || "tier_15";
-        const fee = d.fee || 99;
-
+        // Provider adapter: swap credentials here when Tranzila/PayPal account is ready
+        const PROVIDERS = {
+          tranzila: { ready: false, endpoint: null },   // Tranzila: terminal + credit card redirect flow
+          paypal:   { ready: false, endpoint: null },   // PayPal: subscriptions API
+          stripe:   { ready: false, endpoint: null },  // Stripe: checkout sessions
+        };
+        const provider = PROVIDERS[d.provider] ? d.provider : "tranzila";
+        const cycle = d.billing_cycle === "annual" ? "annual" : "monthly";
+        const planKey = d.plan === "tier_20plus" ? "tier_20plus" : "tier_20";
+        const p = PRICING[planKey];
+        const fee = p[cycle];
+        const adapter = PROVIDERS[provider];
         result = {
           success: true,
+          provider,
           payment_id: `pay_${crypto.randomUUID().replace(/-/g, "").substring(0, 16)}`,
-          checkout_url: null, // Will be populated with Stripe/Tranzila URL
-          plan, fee,
-          message: "Payment gateway adapter ready. Stripe/Tranzila integration pending.",
-          // Future: return real checkout URL from Stripe/Tranzila
-          // checkout_url: `https://checkout.stripe.com/...`
+          checkout_url: adapter.ready ? adapter.endpoint : null, // populated once provider credentials are configured
+          plan: planKey, plan_name: p.name, billing_cycle: cycle,
+          monthly_fee: p.monthly, annual_fee: p.annual, charged_fee: fee,
+          trial_active: true, trial_days: TRIAL_DAYS,
+          message: adapter.ready ? "Redirecting to payment provider" : `מתאם ${provider} מוכן — ממתין להגדרת חשבון. חיוב יתחיל רק אחרי ${TRIAL_DAYS} יום ניסיון.`,
         };
         break;
       }
@@ -355,18 +409,47 @@ Deno.serve(async (req) => {
       case "upgradePlan": {
         const d = sanitizeObject(body.data);
         if (!d.restaurant_id || !d.plan) throw { status: 400, error: "Missing required fields" };
-
-        const planFees = { free: 0, tier_15: 99, tier_30: 143, tier_unlimited: 199 };
-        const fee = planFees[d.plan] || 0;
+        const cycle = d.billing_cycle === "annual" ? "annual" : "monthly";
+        const planKey = d.plan === "tier_20plus" ? "tier_20plus" : "tier_20";
+        const p = PRICING[planKey];
+        const fee = p[cycle];
 
         await base44.asServiceRole.entities.Restaurant.update(d.restaurant_id, {
-          subscription_plan: d.plan,
-          monthly_fee: fee,
+          subscription_plan: planKey,
+          monthly_fee: p.monthly,
+          billing_cycle: cycle,
           billing_status: fee > 0 ? "active" : "trial",
           payment_gateway_id: d.payment_gateway_id || null,
         });
 
-        result = { success: true, plan: d.plan, fee };
+        result = { success: true, plan: planKey, plan_name: p.name, billing_cycle: cycle, monthly_fee: p.monthly, charged_fee: fee };
+        break;
+      }
+
+      // ─── TRIAL EXPIRATION CHECK (for daily automation) ──────
+      case "checkTrialExpirations": {
+        const restaurants = await base44.asServiceRole.entities.Restaurant.filter({ status: "active" });
+        const now = Date.now();
+        const alerts = [];
+        for (const r of restaurants) {
+          if (!r.promo_active || !r.promo_expires_at) continue;
+          const msLeft = new Date(r.promo_expires_at).getTime() - now;
+          const daysLeft = Math.ceil(msLeft / (24 * 60 * 60 * 1000));
+          const shouldAlert = [3, 1, 0].includes(daysLeft) || msLeft < 0;
+          if (!shouldAlert) continue;
+          const expired = msLeft < 0;
+          const ownerHtml = `<div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+            <h2 style="color:#C9A84C">${expired ? "⏰ ניסיון החינם הסתיים" : "⏳ ניסיון החינם עומד להסתיים"}</h2>
+            <p>שלום ${r.owner_name || ""},</p>
+            <p>${expired ? "תקופת הניסיון של מסעדת " + r.name + " הסתיימה." : "נותרו " + daysLeft + " ימים לסיום תקופת הניסיון של מסעדת " + r.name + "."}</p>
+            <p>כדי להמשיך ליהנות מכל התכונות, הגדר אמצעי תשלום בפאנל הניהול.</p>
+            <p><a href="${APP_URL}#a/${r.id}" style="color:#C9A84C">כניסה לפאנל הניהול →</a></p></div>`;
+          const ownerText = (expired ? "ניסיון החינם הסתיים" : "נותרו " + daysLeft + " ימים לניסיון") + " — " + r.name;
+          const ownerSent = await sendGmail(base44, r.email, expired ? "⏰ ניסיון החינם של " + r.name + " הסתיים" : "⏳ " + daysLeft + " ימים לסיום הניסיון — " + r.name, ownerHtml, ownerText);
+          const saSent = await sendGmail(base44, SUPER_ADMIN_EMAIL, (expired ? "🚨 טרייל הסתיים: " : "🔔 טרייל בקרוב מסתיים: ") + r.name, ownerHtml, ownerText + " (Super Admin alert)");
+          alerts.push({ restaurant: r.name, days_left: daysLeft, expired, owner_email_sent: ownerSent, admin_email_sent: saSent });
+        }
+        result = { success: true, checked: restaurants.length, alerts };
         break;
       }
 

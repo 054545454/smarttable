@@ -22,7 +22,7 @@ const RegisterScreen = {
             <div class="bg-gradient-to-r from-amber-500 to-yellow-600 px-8 py-6 text-center">
               <div class="text-4xl mb-2">🍽️</div>
               <h1 class="text-2xl font-bold text-white">צור חשבון SmartTable</h1>
-              <p class="text-amber-100 text-sm mt-1">הגדרה ב-5 דקות · ניסיון חינם 90 יום</p>
+              <p class="text-amber-100 text-sm mt-1">הגדרה ב-5 דקות · חודש ראשון חינם</p>
             </div>
 
             <div class="p-8">
@@ -87,7 +87,7 @@ const RegisterScreen = {
               <span class="text-gray-400 text-sm mr-2">${tier.fee === 0 ? 'חינם' : '$' + tier.fee + '/mo'}</span>
             </div>
           </div>
-          <p class="text-gray-400 text-xs mt-2">5 שולחנות ראשונים חינם לנצח. שדרוג בכל עת.</p>
+          <p class="text-gray-400 text-xs mt-2">חודש ראשון ניסיון חינם לכל תוכנית · ללא כרטיס אשראי. שדרוג בכל עת.</p>
         </div>
 
         <button id="reg-next-1" class="btn-primary w-full mt-6">המשך →</button>
@@ -170,7 +170,7 @@ const RegisterScreen = {
       const badge = input.parentElement.querySelector('span.px-3');
       const fee = input.parentElement.querySelector('span.text-gray-400');
       if (badge) badge.textContent = tier.name;
-      if (fee) fee.textContent = tier.fee === 0 ? 'חינם' : '$' + tier.fee + '/mo';
+      if (fee) fee.textContent = '$' + tier.fee + '/mo · או $' + tier.annualFee + '/mo שנתי';
     };
     
     root.addEventListener('click', (e) => {

@@ -28,11 +28,10 @@ const CONFIG = {
     adhoc: { icon: '📋', label: 'אחר', label_en: 'Other' },
   },
   pricing: {
+    trialDays: 30,
     tiers: [
-      { id: 'free', name: 'Free', minTables: 1, maxTables: 5, fee: 0 },
-      { id: 'tier_15', name: 'Starter', minTables: 6, maxTables: 15, fee: 99 },
-      { id: 'tier_30', name: 'Professional', minTables: 16, maxTables: 30, fee: 143 },
-      { id: 'tier_unlimited', name: 'Unlimited', minTables: 31, maxTables: 999, fee: 199 },
+      { id: 'tier_20', name: 'Standard', minTables: 1, maxTables: 20, fee: 143, annualFee: 99 },
+      { id: 'tier_20plus', name: 'Premium', minTables: 21, maxTables: 999, fee: 214, annualFee: 189 },
     ],
   },
   escalationDefaults: { green: 2, orange: 4, red: 5 },

@@ -298,7 +298,7 @@ const LandingScreen = {
               ${this.state.signupLoading ? I18n.t('signup.submitting') : I18n.t('signup.submit')}
             </button>
             
-            <p class="text-center text-gray-400 text-xs">ביטול בכל עת · ניסיון חינם 90 יום</p>
+            <p class="text-center text-gray-400 text-xs">ביטול בכל עת · חודש ראשון חינם</p>
           </div>
         </div>
       </div>
@@ -616,19 +616,22 @@ const LandingScreen = {
 
   renderPricingTiers() {
     const tiers = [
-      { name: 'Free', tables: '1-5', price: '$0', color: 'gray' },
-      { name: 'Starter', tables: '6-15', price: '$99', color: 'amber' },
-      { name: 'Professional', tables: '16-30', price: '$143', color: 'amber' },
-      { name: 'Unlimited', tables: '31+', price: '$199', color: 'amber' },
+      { name: 'Standard', tables: 'עד 20', monthly: '$143', annual: '$99' },
+      { name: 'Premium', tables: '20+', monthly: '$214', annual: '$189' },
     ];
     return tiers.map(t => `
-      <div class="bg-white rounded-2xl p-6 text-center border ${t.price === '$143' ? 'border-amber-500 ring-2 ring-amber-500/20' : 'border-gray-200'} relative">
-        ${t.price === '$143' ? `<div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-amber-500 text-white text-xs font-semibold">${I18n.t('pricing.popular')}</div>` : ''}
+      <div class="bg-white rounded-2xl p-6 text-center border border-gray-200 relative">
         <h3 class="font-semibold text-gray-900 mb-1">${t.name}</h3>
         <p class="text-gray-400 text-xs mb-3">${t.tables} שולחנות</p>
-        <div class="text-2xl font-bold text-gray-900">${t.price}<span class="text-sm font-normal text-gray-400">/mo</span></div>
+        <div class="text-2xl font-bold text-gray-900">${t.monthly}<span class="text-sm font-normal text-gray-400">/mo</span></div>
+        <div class="text-sm text-green-600 font-semibold mt-1">או ${t.annual}/mo בחיוב שנתי</div>
       </div>
-    `).join('');
+    `).join('') + `
+      <div class="bg-gradient-to-r from-amber-500 to-yellow-600 rounded-2xl p-6 text-center text-white md:col-span-2">
+        <p class="font-bold text-lg">🎁 חודש ראשון חינם — ללא כרטיס אשראי</p>
+        <p class="text-amber-100 text-sm mt-1">30 יום ניסיון מלא בכל התכונות · ביטול בכל עת</p>
+      </div>
+    `;
   },
 
   attachEvents() {
@@ -687,17 +690,13 @@ const LandingScreen = {
   },
 
   getTier(count) {
-    if (count <= 5) return { name: 'חינם', price: '$0', range: `עד ${count} שולחנות`, features: 'כל התכונות הכלולות' };
-    if (count <= 15) return { name: 'Starter', price: '$99', range: `${count} שולחנות`, features: 'כל התכונות + דוחות מתקדמים' };
-    if (count <= 30) return { name: 'Professional', price: '$143', range: `${count} שולחנות`, features: `כל התכונות + ${I18n.t('features.kiosk.title')} + תמיכה` };
-    return { name: 'Unlimited', price: '$199', range: `${count}+ שולחנות`, features: 'כל התכונות + תמיכה VIP' };
+    if (count <= 20) return { name: 'Standard', price: '$143', annual: '$99', range: `${count} שולחנות`, features: 'כל התכונות + דוחות מתקדמים' };
+    return { name: 'Premium', price: '$214', annual: '$189', range: `${count}+ שולחנות`, features: `כל התכונות + ${I18n.t('features.kiosk.title')} + תמיכה` };
   },
 
   getTierForCount(count) {
-    if (count <= 5) return { plan: 'free', fee: 0, name: 'Free' };
-    if (count <= 15) return { plan: 'tier_15', fee: 99, name: 'Starter' };
-    if (count <= 30) return { plan: 'tier_30', fee: 143, name: 'Professional' };
-    return { plan: 'tier_unlimited', fee: 199, name: 'Unlimited' };
+    if (count <= 20) return { plan: 'tier_20', fee: 143, annualFee: 99, name: 'Standard' };
+    return { plan: 'tier_20plus', fee: 214, annualFee: 189, name: 'Premium' };
   },
 
   // PWA Install Prompt
