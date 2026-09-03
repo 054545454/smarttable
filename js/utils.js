@@ -136,10 +136,6 @@ const Utils = {
   },
   
   // Detect mobile
-  isMobile() {
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  },
-  
   // Vibrate
   vibrate(pattern = [100]) {
     if (navigator.vibrate) navigator.vibrate(pattern);
