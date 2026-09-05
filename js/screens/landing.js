@@ -122,11 +122,11 @@ const LandingScreen = {
               </div>
               
               <div id="pricing-result" class="text-center">
-                <div class="inline-block px-6 py-2 rounded-full bg-amber-100 text-amber-700 text-sm font-semibold mb-4" id="pricing-tier-badge">חינם</div>
+                <div class="inline-block px-6 py-2 rounded-full bg-amber-100 text-amber-700 text-sm font-semibold mb-4" id="pricing-tier-badge">Standard</div>
                 <div class="text-5xl font-bold text-gray-900 mb-2">
-                  <span id="pricing-amount">$0</span><span class="text-lg text-gray-400 font-normal">/חודש</span>
+                  <span id="pricing-amount">$143</span><span class="text-lg text-gray-400 font-normal">/חודש</span>
                 </div>
-                <div class="text-gray-500 text-sm mb-6" id="pricing-description">עד 5 שולחנות · כל התכונות הכלולות</div>
+                <div class="text-gray-500 text-sm mb-6" id="pricing-description">עד 20 שולחנות · Standard · חודש ראשון חינם</div>
               </div>
               
               <button onclick="LandingScreen.openSignup()" class="block w-full py-4 rounded-full bg-gradient-to-r from-amber-500 to-yellow-600 text-white font-semibold text-center hover:shadow-lg transition-all cursor-pointer">
@@ -273,6 +273,7 @@ const LandingScreen = {
                   <button id="su-tables-plus" class="w-10 h-10 rounded-full bg-gray-100 text-gray-700 text-lg font-bold hover:bg-gray-200 transition">+</button>
                   <span class="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-700 font-semibold" id="su-tier-badge">${tier.name}</span>
                 </div>
+                <div class="text-xs text-gray-500 mt-1.5" id="su-fee-line">Standard: $143/חודש · או $99/חודש בחיוב שנתי · <b class="text-green-600">חודש ראשון חינם</b></div>
               </div>
             </div>
             
@@ -317,6 +318,8 @@ const LandingScreen = {
       const tier = this.getTierForCount(count);
       document.getElementById('su-tier-badge').textContent = tier.name;
       document.getElementById('su-tier-badge').className = `text-xs px-2 py-1 rounded-full ${tier.fee === 0 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'} font-semibold`;
+      const feeLine = document.getElementById('su-fee-line');
+      if (feeLine) feeLine.innerHTML = `${tier.name}: $${tier.fee}/חודש · או $${tier.annualFee}/חודש בחיוב שנתי · <b class="text-green-600">חודש ראשון חינם</b>`;
     };
     document.getElementById('su-tables-minus')?.addEventListener('click', () => { tablesInput.value = Math.max(1, parseInt(tablesInput.value) - 1); updateTier(); });
     document.getElementById('su-tables-plus')?.addEventListener('click', () => { tablesInput.value = Math.min(100, parseInt(tablesInput.value) + 1); updateTier(); });
@@ -680,7 +683,7 @@ const LandingScreen = {
       const tier = this.getTier(count);
       document.getElementById('pricing-tier-badge').textContent = tier.name;
       document.getElementById('pricing-amount').textContent = tier.price;
-      document.getElementById('pricing-description').textContent = `${tier.range} · ${tier.features}`;
+      document.getElementById('pricing-description').textContent = `${tier.range} · ${tier.features} · או ${tier.annual}/חודש בחיוב שנתי`;
     };
     
     if (minus) minus.addEventListener('click', () => { input.value = Math.max(1, (parseInt(input.value) || 1) - 1); updatePricing(); });

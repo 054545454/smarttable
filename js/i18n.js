@@ -384,7 +384,7 @@ const I18n = {
       'hero.title1': 'Le Système Intelligent',
       'hero.title2': 'de Gestion de Restaurant',
       'hero.subtitle': 'Menu numérique, appel serveur en un clic, cadeaux, gestion des équipes et rapports en temps réel',
-      'hero.cta': 'Commencer — 5 tables gratuites',
+      'hero.cta': 'Commencer — premier mois gratuit',
       'hero.demo': '▶ Essayer la démo',
       'features.title': 'Tout pour votre restaurant',
       'features.subtitle': 'Une plateforme, des possibilités infinies',
