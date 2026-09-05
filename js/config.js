@@ -4,6 +4,7 @@ const CONFIG = {
     url: 'https://veda-0596d020.base44.app/functions/smarttableApi',
     registerUrl: 'https://veda-0596d020.base44.app/functions/smarttableRegister',
     pairingUrl: 'https://veda-0596d020.base44.app/functions/smarttablePairing',
+    googleClientId: '', // Google OAuth Client ID — enable Google Sign-In on the landing page
   },
   app: {
     name: 'SmartTable',

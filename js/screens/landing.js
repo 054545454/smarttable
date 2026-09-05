@@ -213,6 +213,61 @@ const LandingScreen = {
     document.getElementById('signup-modal').innerHTML = '';
   },
 
+  async renderGoogleButton() {
+    try {
+      if (!window.google || !window.google.accounts || !window.google.accounts.id) {
+        await new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = 'https://accounts.google.com/gsi/client'; s.async = true; s.defer = true;
+          s.onload = resolve; s.onerror = reject;
+          document.head.appendChild(s);
+        });
+      }
+      const host = document.getElementById('google-signup-btn');
+      if (!host) return;
+      window.google.accounts.id.initialize({
+        client_id: CONFIG.api.googleClientId,
+        callback: (resp) => this.handleGoogleCredential(resp.credential),
+        auto_select: false,
+        cancel_on_tap_outside: true,
+      });
+      const holder = document.createElement('div');
+      holder.className = 'w-full flex justify-center';
+      host.replaceWith(holder);
+      window.google.accounts.id.renderButton(holder, {
+        theme: 'outline', size: 'large', shape: 'pill',
+        text: 'continue_with', width: 320, locale: 'he',
+      });
+    } catch (e) {
+      console.warn('Google Sign-In unavailable:', e);
+      Utils.toast('כניסה עם Google אינה זמינה כרגע');
+    }
+  },
+
+  async handleGoogleCredential(credential) {
+    try {
+      Utils.toast('מאמת את החשבון שלך...');
+      const r = await fetch(CONFIG.api.registerUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'googleAuth', credential }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'אימות נכשל');
+      const session = {
+        id: data.user.id, full_name: data.user.full_name, username: data.user.username,
+        role: 'admin', restaurant_id: data.restaurant_id, must_change_password: false,
+      };
+      Auth.setSession('admin', session);
+      Auth.current = session;
+      this.closeSignup();
+      Utils.toast(data.is_new ? '🎉 החשבון נוצר! מעביר אותך לפאנל הניהול' : 'נכנסת בהצלחה 👋');
+      setTimeout(() => { window.location.hash = '#a/' + data.restaurant_id; window.location.reload(); }, 900);
+    } catch (e) {
+      Utils.toast('שגיאה: ' + e.message);
+    }
+  },
+
   renderSignupModal() {
     const tier = this.getTierForCount(5);
     document.getElementById('signup-modal').classList.remove('hidden');
@@ -335,10 +390,14 @@ const LandingScreen = {
       });
     });
 
-    // Google signup stub
-    document.getElementById('google-signup-btn')?.addEventListener('click', () => {
-      Utils.toast('כניסה עם Google תהיה זמינה בקרוב');
-    });
+    // Google Sign-In — official GIS button when client ID configured, otherwise graceful stub
+    if (CONFIG.api.googleClientId) {
+      this.renderGoogleButton();
+    } else {
+      document.getElementById('google-signup-btn')?.addEventListener('click', () => {
+        Utils.toast('כניסה עם Google תופעל בקרוב');
+      });
+    }
 
     // Submit
     document.getElementById('su-submit')?.addEventListener('click', () => this.handleSignup());

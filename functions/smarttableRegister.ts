@@ -51,6 +51,7 @@ function generatePairingCode() {
 // ─── SmartTable 2.1 Pricing (30-day trial, 2 tiers, monthly/annual) ──
 const TRIAL_DAYS = 30;
 const SUPER_ADMIN_EMAIL = "Smartable1000@gmail.com";
+const GOOGLE_CLIENT_ID = ""; // set to the OAuth Web Client ID once created in Google Cloud Console
 const PRICING = {
   tier_20:     { name: "Standard", maxTables: 20,  monthly: 143, annual: 99 },
   tier_20plus: { name: "Premium",  maxTables: 999, monthly: 214, annual: 189 },
@@ -225,6 +226,122 @@ Deno.serve(async (req) => {
         const adminAlertSent = await sendGmail(base44, SUPER_ADMIN_EMAIL, `🔔 רישום חדש: ${name}`, saHtml, saText);
 
         result = { success: true, restaurant_id: restaurant.id, plan: planName, fee, email_sent: welcomeSent, admin_alert_sent: adminAlertSent, tables_created: tablesToCreate, trial_days: TRIAL_DAYS };
+        break;
+      }
+
+      // ─── GOOGLE SIGN-IN (verify token → login or auto-onboard) ──
+      case "googleAuth": {
+        const credential = body.credential || "";
+        if (!credential) throw { status: 400, error: "Missing Google credential" };
+
+        // Verify the ID token with Google
+        const verifyRes = await fetch("https://oauth2.googleapis.com/tokeninfo?id_token=" + encodeURIComponent(credential));
+        if (!verifyRes.ok) throw { status: 401, error: "טוקן Google לא תקין או פג תוקף" };
+        const payload = await verifyRes.json();
+        const emailVerified = payload.email_verified === true || payload.email_verified === "true";
+        if (!payload.email || !emailVerified) throw { status: 401, error: "אימייל Google לא מאומת" };
+        if (GOOGLE_CLIENT_ID && payload.aud !== GOOGLE_CLIENT_ID) throw { status: 401, error: "טוקן לא שייך לאפליקציה זו" };
+
+        const email = payload.email.toLowerCase();
+        const ownerName = sanitize(payload.name || email.split("@")[0]).slice(0, 60);
+
+        // Existing admin user → login
+        const existing = await base44.asServiceRole.entities.AppUser.filter({ username: email, role: "admin", is_active: true });
+        if (existing && existing.length > 0) {
+          const user = existing[0];
+          try { await base44.asServiceRole.entities.Restaurant.update(user.restaurant_id, { last_login_at: new Date().toISOString() }); } catch {}
+          result = {
+            success: true, is_new: false, restaurant_id: user.restaurant_id,
+            user: { id: user.id, full_name: user.full_name, username: user.username, restaurant_id: user.restaurant_id },
+          };
+          break;
+        }
+
+        // New user → auto-onboard (Standard plan, default 5 tables, 30-day trial)
+        const tableCount = 5;
+        const tier = getTierFor(tableCount);
+        const plan = "tier_20";
+        const restaurantName = "המסעדה של " + ownerName;
+
+        const restaurant = await base44.asServiceRole.entities.Restaurant.create({
+          name: restaurantName, owner_name: ownerName, email,
+          phone_primary: "", phone_secondary: "",
+          address: "", business_number: "", contract_number: "", technical_contact: "", notes_internal: "",
+          max_tables: tableCount, status: "active",
+          subscription_plan: plan, monthly_fee: tier.monthly, billing_currency: "USD",
+          billing_status: "trial", billing_day: new Date().getDate(),
+          promo_active: true, promo_expires_at: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+        });
+
+        await base44.asServiceRole.entities.RestaurantSetting.create({
+          restaurant_id: restaurant.id, theme: "luxury",
+          primary_color: "#C9A84C", secondary_color: "#1A1A1A",
+          font_family: "Playfair Display", default_language: "he",
+          customer_view_mode: "full_menu",
+          enabled_buttons: JSON.stringify(["water","bill","waiter","wine_menu","dessert_menu","special"]),
+          kiosk_pin: String(Math.floor(1000 + Math.random() * 9000)),
+          escalation_green_minutes: 2, escalation_orange_minutes: 4, escalation_alert_minutes: 5,
+        });
+
+        // Admin user with random password (Google-authenticated users sign in via Google)
+        const { hash, salt } = await hashPassword(crypto.randomUUID());
+        const user = await base44.asServiceRole.entities.AppUser.create({
+          username: email, full_name: ownerName,
+          role: "admin", restaurant_id: restaurant.id,
+          password_hash: `h:${salt}:${hash}`,
+          is_active: true, must_change_password: false,
+        });
+
+        for (let i = 1; i <= tableCount; i++) {
+          await base44.asServiceRole.entities.RestaurantTable.create({
+            restaurant_id: restaurant.id, table_number: i,
+            qr_token: `qr_${crypto.randomUUID().replace(/-/g, "")}`,
+            is_open: false, scratch_used: false,
+          });
+        }
+
+        // Welcome email (Google flow — no password)
+        const loginUrl = `${APP_URL}#a/${restaurant.id}`;
+        const trialEnd = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toLocaleDateString("he-IL");
+        const welcomeHtml = [
+          '<div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">',
+          '<h2 style="color:#C9A84C">ברוכים הבאים ל-SmartTable! 🎉</h2>',
+          '<p>שלום ' + ownerName + ',</p>',
+          '<p>החשבון נוצר בהצלחה דרך Google. יש לך <b>30 יום ניסיון חינם מלא</b> — ללא כרטיס אשראי.</p>',
+          '<div style="background:#f5f5f5;padding:20px;border-radius:8px;margin:20px 0">',
+          '<p style="margin:5px 0"><b>מסעדה:</b> ' + restaurantName + '</p>',
+          '<p style="margin:5px 0"><b>תוכנית:</b> ' + tier.name + ' · $' + tier.monthly + '/חודש או $' + tier.annual + '/חודש בחיוב שנתי</p>',
+          '<p style="margin:5px 0"><b>כניסה:</b> דרך הכפתור "המשך עם Google" בעמוד הבית</p>',
+          '<p style="margin:5px 0"><b>ניסיון חינם עד:</b> ' + trialEnd + '</p>',
+          '</div>',
+          '<p style="font-size:16px"><b>🚀 כניסה לפאנל הניהול שלך:</b><br>',
+          '<a href="' + loginUrl + '" style="color:#C9A84C;font-weight:bold">' + loginUrl + '</a></p>',
+          '<p style="color:#888;margin-top:30px;font-size:12px">SmartTable — מערכת ניהול חכמה למסעדות</p>',
+          '</div>',
+        ].join("\n");
+        const welcomeText = `ברוכים הבאים ל-SmartTable!\n\nשלום ${ownerName},\nהחשבון נוצר דרך Google.\n\nמסעדה: ${restaurantName}\nתוכנית: ${tier.name} · $${tier.monthly}/חודש\nניסיון חינם עד: ${trialEnd}\n\nכניסה: ${loginUrl} (דרך הכפתור "המשך עם Google")`;
+        const welcomeSent = await sendGmail(base44, email, "ברוכים הבאים ל-SmartTable! החשבון שלך נוצר", welcomeHtml, welcomeText);
+
+        // Super Admin alert
+        const saHtml = [
+          '<div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">',
+          '<h2 style="color:#C9A84C">🔔 רישום חדש דרך Google ב-SmartTable</h2>',
+          '<div style="background:#f5f5f5;padding:20px;border-radius:8px;margin:20px 0">',
+          '<p style="margin:5px 0"><b>מסעדה:</b> ' + restaurantName + '</p>',
+          '<p style="margin:5px 0"><b>בעלים:</b> ' + ownerName + '</p>',
+          '<p style="margin:5px 0"><b>אימייל:</b> ' + email + '</p>',
+          '<p style="margin:5px 0"><b>שולחנות:</b> ' + tableCount + ' · <b>תוכנית:</b> ' + tier.name + ' ($' + tier.monthly + '/mo)</p>',
+          '<p style="margin:5px 0"><b>תאריך:</b> ' + new Date().toLocaleString("he-IL") + '</p>',
+          '</div>',
+          '</div>',
+        ].join("\n");
+        const saSent = await sendGmail(base44, SUPER_ADMIN_EMAIL, `🔔 רישום חדש (Google): ${restaurantName}`, saHtml, `רישום חדש דרך Google: ${restaurantName} (${email})`);
+
+        result = {
+          success: true, is_new: true, restaurant_id: restaurant.id,
+          trial_days: TRIAL_DAYS, email_sent: welcomeSent, admin_alert_sent: saSent,
+          user: { id: user.id, full_name: ownerName, username: email, restaurant_id: restaurant.id },
+        };
         break;
       }
 
