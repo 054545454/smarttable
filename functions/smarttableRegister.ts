@@ -51,7 +51,7 @@ function generatePairingCode() {
 // ─── SmartTable 2.1 Pricing (30-day trial, 2 tiers, monthly/annual) ──
 const TRIAL_DAYS = 30;
 const SUPER_ADMIN_EMAIL = "Smartable1000@gmail.com";
-const GOOGLE_CLIENT_ID = ""; // set to the OAuth Web Client ID once created in Google Cloud Console
+const GOOGLE_CLIENT_ID = "1061392739353-co1cpbt2hf59f4jvqmq91t2nd2rgvg76.apps.googleusercontent.com"; // OAuth Web Client ID (Google Cloud Console)
 const PRICING = {
   tier_20:     { name: "Standard", maxTables: 20,  monthly: 143, annual: 99 },
   tier_20plus: { name: "Premium",  maxTables: 999, monthly: 214, annual: 189 },
