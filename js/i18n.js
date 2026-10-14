@@ -445,12 +445,10 @@ const I18n = {
       'pairing.subtitle': 'Entrez le code du gestionnaire',
     },
   },
-
   t(key) {
     const lang = this.translations[this.current] || this.translations.he;
     return lang[key] || this.translations.he[key] || key;
   },
-
   setLang(lang) {
     this.current = lang;
     localStorage.setItem('st_lang', lang);
@@ -462,19 +460,15 @@ const I18n = {
     }
   },
 
+
   getLangFlag(lang) {
     const flags = { he: '🇮🇱', en: '🇬🇧', ru: '🇷🇺', ar: '🇸🇦', fr: '🇫🇷' };
     return flags[lang] || '🌐';
   },
 
-  getLangName(lang) {
-    const names = { he: 'עברית', en: 'English', ru: 'Русский', ar: 'العربية', fr: 'Français' };
-    return names[lang] || lang;
-  },
-
   getLangBar() {
     const langs = CONFIG.app.supportedLanguages;
-    return langs.map(l => 
+    return langs.map(l =>
       `<button onclick="I18n.setLang('${l}')" class="text-xs px-2 py-1 rounded ${l === this.current ? 'bg-amber-500 text-white' : 'text-gray-300 hover:text-white'}">${this.getLangFlag(l)}</button>`
     ).join('');
   }

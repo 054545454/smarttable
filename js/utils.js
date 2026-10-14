@@ -35,13 +35,6 @@ const Utils = {
     return d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' });
   },
   
-  formatDateHebrew(dateStr) {
-    if (!dateStr) return '—';
-    const clean = typeof dateStr === 'string' ? dateStr.replace(/(\.\d{3})\d+/, '$1') : dateStr;
-    const d = new Date(clean);
-    if (isNaN(d.getTime())) return '—';
-    return d.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' });
-  },
   
   // Seconds to readable format
   formatDuration(seconds) {
@@ -67,11 +60,6 @@ const Utils = {
     return 'green';
   },
   
-  // Urgency color class
-  urgencyClass(createdAt, escalationSettings) {
-    const level = this.getUrgency(createdAt, escalationSettings);
-    return `task-${level}`;
-  },
   
   // Generate UUID
   uuid() {
@@ -92,20 +80,7 @@ const Utils = {
     return id;
   },
   
-  // Apply theme to element
-  applyTheme(element, themeName) {
-    element.classList.remove('theme-luxury', 'theme-premium', 'theme-classic');
-    element.classList.add(`theme-${themeName || 'luxury'}`);
-  },
   
-  // Debounce
-  debounce(fn, delay = 300) {
-    let timer;
-    return (...args) => {
-      clearTimeout(timer);
-      timer = setTimeout(() => fn(...args), delay);
-    };
-  },
   
   // Escape HTML
   escape(str) {
@@ -135,75 +110,8 @@ const Utils = {
     else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
   },
   
-  // Detect mobile
   // Vibrate
   vibrate(pattern = [100]) {
     if (navigator.vibrate) navigator.vibrate(pattern);
   },
-  
-  // Download as file
-  downloadFile(content, filename, type = 'text/plain') {
-    const blob = new Blob([content], { type });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  },
-  
-  // Export array to CSV
-  exportCSV(data, filename) {
-    if (!data || data.length === 0) return;
-    const headers = Object.keys(data[0]);
-    const rows = data.map(row => headers.map(h => `"${row[h] || ''}"`).join(','));
-    const csv = [headers.join(','), ...rows].join('\n');
-    this.downloadFile('\uFEFF' + csv, filename, 'text/csv;charset=utf-8');
-  },
-
-  // ─── Wake Lock API (prevent screen sleep) ──────────────
-  requestWakeLock(screenObj) {
-    if (!('wakeLock' in navigator)) return;
-    const request = async () => {
-      try {
-        if (screenObj.state.wakeLock) await screenObj.state.wakeLock.release();
-        screenObj.state.wakeLock = await navigator.wakeLock.request('screen');
-      } catch(e) { /* wake lock failed silently */ }
-    };
-    request();
-    if (!screenObj._wakeLockHandler) {
-      screenObj._wakeLockHandler = () => { if (document.visibilityState === 'visible') request(); };
-      document.addEventListener('visibilitychange', screenObj._wakeLockHandler);
-    }
-  },
-
-  // ─── Network Status Banner ────────────────────────────
-  initNetworkBanner() {
-    const showBanner = (type) => {
-      let banner = document.getElementById('network-banner');
-      if (!banner) {
-        banner = document.createElement('div');
-        banner.id = 'network-banner';
-        banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;text-align:center;padding:8px 16px;font-size:14px;font-weight:600;transition:opacity 0.3s';
-        document.body.appendChild(banner);
-      }
-      if (type === 'offline') {
-        banner.style.background = '#dc2626';
-        banner.style.color = '#fff';
-        banner.textContent = '⚠️ מצב לא מקוון — פעולות יסתנכרנו אוטומטית כשהרשת תחזור';
-        banner.style.opacity = '1';
-        banner.style.display = 'block';
-      } else if (type === 'online') {
-        banner.style.background = '#16a34a';
-        banner.style.color = '#fff';
-        banner.textContent = '✅ החיבור חזר, מסתנכרן...';
-        banner.style.opacity = '1';
-        banner.style.display = 'block';
-        setTimeout(() => { banner.style.opacity = '0'; setTimeout(() => { banner.style.display = 'none'; }, 300); }, 2500);
-      }
-    };
-    window.addEventListener('offline', () => showBanner('offline'));
-    window.addEventListener('online', () => showBanner('online'));
-    if (!navigator.onLine) setTimeout(() => showBanner('offline'), 500);
-  },
-};
+  };

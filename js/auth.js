@@ -1,8 +1,6 @@
 // SmartTable — Auth & Session Management
 const Auth = {
   current: null,
-  restaurant: null,
-  shift: null,
   
   setSession(key, data) {
     sessionStorage.setItem(`smarttable_${key}`, JSON.stringify(data));
@@ -19,8 +17,6 @@ const Auth = {
       .filter(k => k.startsWith('smarttable_'))
       .forEach(k => sessionStorage.removeItem(k));
     this.current = null;
-    this.restaurant = null;
-    this.shift = null;
   },
   
   async loginWaiter(name, restaurantId, shiftId) {
@@ -173,16 +169,6 @@ const Auth = {
         errEl.classList.remove('hidden');
       }
     });
-  },
-  
-  async getRestaurantByTableToken(token) {
-    const data = await sbGetByQr(token);
-    return {
-      table: data.table,
-      restaurant: data.restaurant,
-      settings: data.settings || {},
-      gifts: data.gifts || [],
-    };
   },
   
   isRestaurantActive(restaurant) {

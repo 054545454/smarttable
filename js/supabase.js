@@ -85,9 +85,7 @@ async function sbGetFeedback(restaurantId, negativeOnly) { return apiCall({ acti
 async function sbHandleFeedback(feedbackId) { return apiCall({ action: 'handleFeedback', data: { feedback_id: feedbackId } }); }
 
 // ─── New: Guest Orders (Bill Split) ──────────────────────────────
-async function sbSaveGuestOrder(data) { return apiCall({ action: 'saveGuestOrder', data }); }
 async function sbGetGuestOrders(restaurantId, tableId) { return apiCall({ action: 'getGuestOrders', filters: { restaurant_id: restaurantId, table_id: tableId } }); }
-async function sbTransferOrderItem(orderId, itemIndex, toGuestDevice) { return apiCall({ action: 'transferOrderItem', data: { order_id: orderId, item_index: itemIndex, to_guest_device: toGuestDevice } }); }
 async function sbPayGuestOrder(orderId) { return apiCall({ action: 'payGuestOrder', data: { order_id: orderId } }); }
 
 // ─── New: Heatmap ────────────────────────────────────────────────
@@ -117,12 +115,6 @@ function sbSubscribePoll(restaurantId, callback, intervalMs = 3000) {
 
 function sbSubscribeTasks(restaurantId, callback) {
   return sbSubscribePoll(restaurantId, (data) => { if (data.tasks) callback({ eventType: 'tasks', data: data.tasks }); });
-}
-function sbSubscribeTables(restaurantId, callback) {
-  return sbSubscribePoll(restaurantId, (data) => { if (data.tables) callback({ eventType: 'tables', data: data.tables }); });
-}
-function sbSubscribeShifts(restaurantId, callback) {
-  return sbSubscribePoll(restaurantId, (data) => { if (data.shift) callback({ eventType: 'shifts', data: data.shift }); });
 }
 
 // ─── Init offline queue ──────────────────────────────────────────

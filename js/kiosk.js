@@ -206,7 +206,4 @@ const KioskLock = {
     else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
   },
 
-  isLocked() {
-    return this.state.locked;
-  },
 };

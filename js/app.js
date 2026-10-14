@@ -5,16 +5,8 @@ const App = {
     this.checkKioskRestore();
     this.handleRoute();
     window.addEventListener('hashchange', () => this.handleRoute());
-    Utils.initNetworkBanner();
 
-    // PWA Install Prompt (global)
-    this.deferredPrompt = null;
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      this.deferredPrompt = e;
-    });
   },
-
   // ─── Kiosk Auto-Restore ──────────────────────────────────
   checkKioskRestore() {
     const stored = localStorage.getItem('st_kiosk_device');
@@ -35,7 +27,6 @@ const App = {
       } catch (e) {}
     }
   },
-
   handleRoute() {
     const hash = window.location.hash.slice(1);
     const [route, param] = hash.split('/');
@@ -90,7 +81,6 @@ const App = {
         LandingScreen.init();
     }
   },
-
   // ─── Device Pairing via URL ──────────────────────────────
   async handlePairing(code) {
     document.getElementById('app').innerHTML = `
@@ -217,12 +207,10 @@ const App = {
       `;
     }
   },
-
   handlePairingEntry() {
     LandingScreen.init();
     setTimeout(() => LandingScreen.openPairing(), 300);
   },
-
   renderScreenSelector(defaultType) {
     document.getElementById('app').innerHTML = `
       <div class="min-h-screen flex items-center justify-center bg-gray-50 p-6">
@@ -254,7 +242,6 @@ const App = {
       window.location.hash = `${routeMap[type]}/${rid}`;
     });
   },
-
   cleanupPrevious() {
     // Clean up waiter screen subscriptions
     if (typeof WaiterScreen !== 'undefined' && WaiterScreen.state && WaiterScreen.state.subscriptions) {
