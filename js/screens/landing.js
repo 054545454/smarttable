@@ -189,7 +189,7 @@ const LandingScreen = {
                 <button onclick="LandingScreen.openSignup()" class="hover:text-white transition">הרשמה</button>
               </div>
             </div>
-            <div class="text-center text-gray-600 text-xs mt-8">© 2026 SmartTable. כל הזכויות שמורות.</div>
+            <div class="text-center text-gray-600 text-xs mt-8">© 2026 SmartTable. כל הזכויות שמורות. · <a href="#sa" class="hover:text-gray-800 transition-colors">ניהול מערכת</a></div>
           </div>
         </footer>
       </div>

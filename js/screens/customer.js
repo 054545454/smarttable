@@ -163,6 +163,7 @@ const CustomerScreen = {
             ${welcomeText}
           </p>
           ${isVIP ? `<span class="vip-badge mt-2 inline-block">⭐ VIP · ${visitCount} ביקורים</span>` : ''}
+          <div class="flex items-center justify-center gap-1 mt-3" id="customer-lang-bar"></div>
         </div>
 
         <!-- Guest Profile button -->
@@ -262,6 +263,7 @@ const CustomerScreen = {
           <span class="text-2xl mb-1">${icon}</span>
           <div class="svc-status-text">${inProgress ? '🤵 ' + t('waiterOnTheWay') : '⏳ ' + t('requestSent')}</div>
           <div class="svc-status-sub">${inProgress ? 'בדרך כלל תוך פחות מדקה' : 'הבקשה נשלחה'}</div>
+          ${!inProgress && activeTask.id ? `<span data-cancel-task="${activeTask.id}" class="svc-cancel-link">✕ ${t('cancelRequest')}</span>` : ''}
         </button>`;
     }
     return `
@@ -284,11 +286,12 @@ const CustomerScreen = {
           <div class="card mb-2 flex items-center justify-between animate-slide-in-right" style="background:var(--card);border:1px solid var(--border)">
             <div class="flex items-center gap-2">
               <span class="text-xl">${CONFIG.taskTypes[task.type]?.icon || '📋'}</span>
-              <span class="text-sm" style="color:var(--text)">${CONFIG.taskTypes[task.type]?.label || task.type}</span>
+              <span class="text-sm" style="color:var(--text)">${t(this.typeLabelKey(task.type))}</span>
             </div>
             <div class="flex items-center gap-2">
               <div class="w-2 h-2 rounded-full animate-pulse-soft" style="background:var(--accent)"></div>
-              <span class="text-xs" style="color:var(--text-muted)">${task.status === 'in_progress' ? '🤵 בטיפול' : t('requestSent')}</span>
+              <span class="text-xs" style="color:var(--text-muted)">${task.status === 'in_progress' ? '🤵 ' + t('waiterOnTheWay') : t('requestSent')}</span>
+              ${(task.status === 'open' && task.id) ? `<button data-cancel-task="${task.id}" class="text-xs px-2 py-1 rounded-full spring-scale" style="color:var(--text-muted);border:1px solid var(--border)">${t('cancelRequest')}</button>` : ''}
             </div>
           </div>`).join('')}
       </div>`;
@@ -298,8 +301,20 @@ const CustomerScreen = {
     const overlay = document.getElementById('scratch-overlay');
     if (overlay) this.setupScratch(overlay);
 
+    this.renderLangBar();
+
     document.querySelectorAll('.service-btn').forEach(btn => {
       btn.addEventListener('click', () => this.requestService(btn.dataset.taskType));
+    });
+
+    document.querySelectorAll('[data-cancel-task]').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const taskId = el.dataset.cancelTask;
+        const task = this.state.activeTasks.find(tk => tk.id === taskId);
+        if (task && task.status === 'in_progress') { Utils.toast(t('cancelBlocked')); return; }
+        this.cancelTask(taskId);
+      });
     });
 
     const profileBtn = document.getElementById('show-profile-btn');
@@ -390,8 +405,73 @@ const CustomerScreen = {
     try { await sbUpdate('restaurant_tables', { id: this.state.table.id }, { scratch_used: true }); } catch(e) {}
   },
 
+  // Map task type to i18n label key
+  typeLabelKey(type) {
+    const map = { water: 'requestWater', bill: 'requestBill', waiter: 'callWaiter', wine_menu: 'wineMenu', dessert_menu: 'dessertMenu', special: 'specialRequest' };
+    return map[type] || 'specialRequest';
+  },
+
+  // Render the language bar on the customer screen
+  renderLangBar() {
+    const bar = document.getElementById('customer-lang-bar');
+    if (!bar) return;
+    const langs = CONFIG.app.supportedLanguages;
+    bar.innerHTML = langs.map(l =>
+      `<button data-lang="${l}" class="text-xs px-2 py-1 rounded-full transition-all ${l === I18n.current ? 'lang-btn-active' : ''}" style="border:1px solid var(--border);background:var(--card);color:var(--text-muted)">${I18n.getLangFlag(l)}</button>`
+    ).join('');
+    bar.querySelectorAll('[data-lang]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        I18n.setLang(btn.dataset.lang);
+        this.render();
+      });
+    });
+  },
+
+  // Confirmation modal before sending a service request
+  showConfirmModal(type, onConfirm) {
+    const modal = document.getElementById('customer-modals');
+    const icon = CONFIG.taskTypes[type]?.icon || '📋';
+    modal.innerHTML = `
+      <div class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-fade-in" id="confirm-modal">
+        <div class="card w-full max-w-xs text-center animate-spring-bounce" style="background:var(--card)">
+          <div class="text-4xl mb-2">${icon}</div>
+          <h2 class="font-playfair text-lg mb-1" style="color:var(--accent)">${t('confirmSendTitle')}</h2>
+          <p class="text-sm mb-4" style="color:var(--text)">${t(this.typeLabelKey(type))} · ${t('tableNumber')} ${this.state.table.table_number}</p>
+          <div class="flex gap-2">
+            <button id="confirm-no" class="btn-secondary flex-1 text-sm">${t('confirmSendNo')}</button>
+            <button id="confirm-yes" class="btn-primary flex-1 text-sm">${t('confirmSendYes')}</button>
+          </div>
+        </div>
+      </div>`;
+    document.getElementById('confirm-no').addEventListener('click', () => modal.innerHTML = '');
+    document.getElementById('confirm-yes').addEventListener('click', () => {
+      modal.innerHTML = '';
+      onConfirm();
+    });
+  },
+
+  // Cancel a sent request (deletes it from the waiter board)
+  async cancelTask(taskId) {
+    try {
+      await sbDelete('tasks', { id: taskId });
+      this.state.activeTasks = this.state.activeTasks.filter(t => t.id !== taskId);
+      Utils.toast('✅ ' + t('requestCancelled'));
+      Utils.vibrate(50);
+      document.getElementById('active-tasks').innerHTML = this.renderActiveTasks();
+      this.refreshServiceButtons();
+    } catch (e) { Utils.toast('שגיאה בביטול'); }
+  },
+
   async requestService(type) {
     // Idempotency: check existing open/in_progress task of same type
+    const existing = this.state.activeTasks.find(t => t.type === type && (t.status === 'open' || t.status === 'in_progress'));
+    if (existing) { Utils.toast(t('requestSent')); return; }
+
+    // Ask the guest to confirm before sending (prevents accidental taps)
+    this.showConfirmModal(type, () => this.sendRequest(type));
+  },
+
+  async sendRequest(type) {
     const existing = this.state.activeTasks.find(t => t.type === type && (t.status === 'open' || t.status === 'in_progress'));
     if (existing) { Utils.toast(t('requestSent')); return; }
 
@@ -461,6 +541,13 @@ const CustomerScreen = {
     // Re-attach click handlers for non-disabled buttons
     grid.querySelectorAll('.service-btn:not([disabled])').forEach(btn => {
       btn.addEventListener('click', () => this.requestService(btn.dataset.taskType));
+    });
+    // Re-attach cancel-request handlers
+    grid.querySelectorAll('[data-cancel-task]').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.cancelTask(el.dataset.cancelTask);
+      });
     });
   },
 

@@ -205,6 +205,14 @@ const AdminScreen = {
         <div class="card text-center"><div class="text-3xl font-bold text-orange-500">${s.openTasks || 0}</div><div class="text-xs text-gray-500 mt-1">פתוחות כעת</div></div>
       </div>
       <div class="card">
+        <h3 class="font-semibold text-gray-700 mb-3">קישורים מהירים</h3>
+        <div class="flex flex-wrap gap-2 mb-4">
+          <button id="ql-waiter-btn" class="btn-secondary text-sm">🤵 מסך מלצר</button>
+          <button id="ql-manager-btn" class="btn-secondary text-sm">🧑‍🍳 מסך מנהל משמרת</button>
+          ${this.state.tables.length ? `<button id="ql-customer-btn" class="btn-secondary text-sm">📱 מסך לקוח (תצוגה)</button>` : ''}
+        </div>
+      </div>
+      <div class="card">
         <h3 class="font-semibold text-gray-700 mb-3">תקציר מהיר</h3>
         <div class="space-y-2 text-sm text-gray-600">
           <div class="flex justify-between py-1"><span>🪑 שולחנות:</span><span class="font-medium">${this.state.tables.length || '—'}</span></div>
@@ -879,6 +887,19 @@ const AdminScreen = {
   attachEvents() {
     const logout = document.getElementById('admin-logout');
     if (logout) logout.addEventListener('click', () => { Auth.clearAll(); this.state.admin = null; this.state.tab = 'dashboard'; this.renderLogin(); });
+
+    // Quick links to staff screens (waiter / manager / customer preview)
+    const rid = this.state.restaurantId;
+    const qlWaiter = document.getElementById('ql-waiter-btn');
+    if (qlWaiter) qlWaiter.addEventListener('click', () => window.open(location.pathname + '#w/' + rid, '_blank'));
+    const qlManager = document.getElementById('ql-manager-btn');
+    if (qlManager) qlManager.addEventListener('click', () => window.open(location.pathname + '#m/' + rid, '_blank'));
+    const qlCustomer = document.getElementById('ql-customer-btn');
+    if (qlCustomer) qlCustomer.addEventListener('click', () => {
+      const table = this.state.tables.find(t => t.qr_token);
+      if (table) window.open(location.pathname + '#c/' + table.qr_token, '_blank');
+      else Utils.toast('אין שולחנות עם קוד QR');
+    });
     
     document.querySelectorAll('[data-tab]').forEach(btn => {
       btn.addEventListener('click', () => { this.state.tab = btn.dataset.tab; this.state.editingMenuItem = null; this.state.editingGift = null; this.state.reports = null; this.state._reportsLoading = false; this.render(); });

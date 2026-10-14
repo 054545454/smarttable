@@ -451,3 +451,19 @@ body { overscroll-behavior: none; }
   animation: svc-waiting-pulse 2s infinite;
 }
 /* SmartTable CSS v2.1 — confetti + spring scratch */
+
+/* Customer: language bar + cancel-request link (2026-10-14) */
+.lang-btn-active {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  background: color-mix(in srgb, var(--accent) 10%, transparent) !important;
+}
+.svc-cancel-link {
+  margin-top: 6px;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-decoration: underline;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.svc-cancel-link:hover { color: #e74c3c; }
